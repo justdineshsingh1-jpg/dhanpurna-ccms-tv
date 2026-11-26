@@ -22,21 +22,53 @@
     .brand h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.2px}
     .brand p{font-size:11.5px;color:var(--muted);margin:2px 0 0}
     .top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
-    .top-stats{display:flex;align-items:center;gap:10px}
-    .top-stat{display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
-    .top-stat-icon{display:grid;place-items:center;font-size:15px}
+    .top-stats{display:flex;align-items:center;gap:12px}
+    .top-stat{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+    .top-stat-icon{display:grid;place-items:center;font-size:18px}
     .top-stat-info{display:flex;flex-direction:column}
-    .top-stat-label{font-size:10.5px;color:#1e293b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
-    .top-stat-value{font-size:16px;font-weight:750;color:#1e293b;letter-spacing:-.3px;line-height:1.2}
-    .top-stat-value.green{color:#1e293b}
-    .top-stat-value.amber{color:#1e293b}
+    .top-stat-label{font-size:11px;color:#1e293b;font-weight:750;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
+    .top-stat-value{font-size:19px;font-weight:800;color:#1e293b;letter-spacing:-.3px;line-height:1.2}
+    .top-stat-value.red{color:var(--red)}
+    .top-stat-value.green{color:var(--green)}
+    .top-stat-value.amber{color:#d97706}
     .db-badge{display:none}
     .db-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
     .db-dot.ready{background:var(--green)}
-    .btn{height:36px;padding:0 12px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:.15s}
+    .btn{height:38px;padding:0 14px;border-radius:8px;font-weight:650;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:.15s}
     .btn:hover{background:#f8fafc;border-color:#cbd5e1}
     .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
     .btn-primary:hover{background:#0369a1;border-color:#0369a1}
+
+    /* Floating Map HUD Legend for 80-Inch TV Screen */
+    .map-tv-legend{position:absolute;bottom:20px;left:20px;z-index:600;display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,.15);border-radius:12px;padding:8px 18px;box-shadow:0 4px 18px rgba(15,23,42,.16);font-size:13px;font-weight:750;color:#1e293b;pointer-events:auto}
+    .tv-legend-item{display:flex;align-items:center;gap:8px}
+    .tv-legend-badge{display:inline-grid;place-items:center;font-size:14px;width:24px;height:24px;border-radius:6px;flex-shrink:0}
+    .tv-legend-badge.panel{background:#dcfce7;color:#15803d;border:1px solid #16a34a}
+    .tv-legend-badge.light{background:#fef9c3;color:#ca8a04;border:1px solid #facc15}
+    .tv-legend-badge.single{background:#ccfbf1;color:#0f766e;border:1px solid #0d9488}
+    .tv-legend-badge.double{background:#f3e8ff;color:#6b21a8;border:1px solid #7c3aed}
+    .tv-legend-badge.faulty{background:#fee2e2;color:#b91c1c;border:1px solid #dc2626}
+
+    /* Large High-Contrast Zoom Controls for 80-Inch TV */
+    .leaflet-control-zoom{border:0!important;box-shadow:0 4px 16px rgba(15,23,42,.2)!important;border-radius:10px!important;overflow:hidden}
+    .leaflet-control-zoom a{width:42px!important;height:42px!important;line-height:42px!important;font-size:22px!important;font-weight:700!important;color:#1e293b!important;background:rgba(255,255,255,.96)!important}
+    .leaflet-control-zoom a:hover{background:#f1f5f9!important;color:#0284c7!important}
+
+    /* 80-Inch TV and 4K Ultra-Large Display Scaling */
+    @media (min-width:1440px), (min-height:900px){
+      .topbar{min-height:70px;padding:10px 24px}
+      .brand-mark{width:42px;height:42px}
+      .brand h1{font-size:18px}
+      .brand p{font-size:12.5px}
+      .top-stat{padding:8px 18px;gap:12px;border-radius:12px}
+      .top-stat-icon{font-size:22px}
+      .top-stat-label{font-size:11.5px}
+      .top-stat-value{font-size:21px}
+      .btn{height:42px;padding:0 16px;font-size:14px;border-radius:10px}
+      .map-layer-btn{min-width:84px;height:38px;font-size:14px}
+      .map-tv-legend{padding:10px 22px;font-size:14px;gap:20px;bottom:26px;left:26px}
+      .tv-legend-badge{width:28px;height:28px;font-size:16px}
+    }
 
     /* Workspace Layout */
     .workspace{min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr)}
@@ -262,10 +294,18 @@
               <strong class="top-stat-value" id="topStatPanels">360</strong>
             </div>
           </div>
+          <div class="top-stat" title="Total lights currently reported not working">
+            <span class="top-stat-icon">🔴</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Not Working</span>
+              <strong class="top-stat-value red" id="topStatFaults">0</strong>
+            </div>
+          </div>
         </div>
 
         <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
         <button class="btn" id="refreshBtn" type="button" title="Refresh data and map view">↻ Refresh</button>
+        <button class="btn" id="fullscreenBtn" type="button" title="Toggle Fullscreen on 80-inch TV">⛶ Fullscreen</button>
         <button class="btn" id="toggleDashboardBtn" type="button" aria-expanded="false" title="Show or hide filters and stats sidebar">Filters</button>
         <button class="btn exit-tv-header" id="exitTvHeaderBtn" type="button">Exit TV</button>
         <button class="btn btn-primary" id="uploadCsvBtn" type="button" title="Preview a CSV update in this browser; publish data.csv beside the app to share it" onclick="document.getElementById('csvFileInput').click()">
@@ -344,6 +384,13 @@
         </div>
 
         <div class="map-toast hidden" id="mapToast"></div>
+        <div class="map-tv-legend" id="mapTvLegend" aria-label="Map status legend">
+          <div class="tv-legend-item"><span class="tv-legend-badge panel">⚡</span><span>Panel</span></div>
+          <div class="tv-legend-item"><span class="tv-legend-badge light">💡</span><span>Light (Working)</span></div>
+          <div class="tv-legend-item"><span class="tv-legend-badge single">●</span><span>Single-Dec</span></div>
+          <div class="tv-legend-item"><span class="tv-legend-badge double">●</span><span>Double-Dec</span></div>
+          <div class="tv-legend-item"><span class="tv-legend-badge faulty">✖</span><span>Not Working</span></div>
+        </div>
         <div class="map-note">💡 Click a light for details · click a panel to trace its road feeder</div>
         <div class="tv-title" aria-live="polite">
           <strong>Dhanpurna CCMS · Live Field Tracking</strong>
@@ -505,7 +552,7 @@
     // =========================================================================
     // 3. APPLICATION STATE & SEARCH INDEX
     // =========================================================================
-    const ASSAM_CENTER = [26.2, 92.9];
+    const GUWAHATI_CENTER = [26.146, 91.742];
     const MAX_CIRCUIT_VERTICES = 2600;
 
     let allRecords = [];
@@ -680,18 +727,18 @@
           ctx.stroke();
         });
 
-        // Low-zoom fast dots (10x10, center 5, 5)
-        this.dotLight = makeSprite(10, 10, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.arc(cx, cy, 3.8, 0, Math.PI * 2);
-          ctx.fillStyle = '#f59e0b'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.fill(); ctx.stroke();
+        // Low-zoom fast dots (14x14, center 7, 7) for high visibility on 80-inch TV
+        this.dotLight = makeSprite(14, 14, (ctx, cx, cy) => {
+          ctx.beginPath(); ctx.arc(cx, cy, 5.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#f59e0b'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
         });
-        this.dotFaulty = makeSprite(10, 10, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
-          ctx.fillStyle = '#dc2626'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.fill(); ctx.stroke();
+        this.dotFaulty = makeSprite(14, 14, (ctx, cx, cy) => {
+          ctx.beginPath(); ctx.arc(cx, cy, 4.8, 0, Math.PI * 2);
+          ctx.fillStyle = '#dc2626'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
         });
-        this.dotPanel = makeSprite(12, 12, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.rect(cx - 4, cy - 4, 8, 8);
-          ctx.fillStyle = '#16a34a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.fill(); ctx.stroke();
+        this.dotPanel = makeSprite(16, 16, (ctx, cx, cy) => {
+          ctx.beginPath(); ctx.rect(cx - 5, cy - 5, 10, 10);
+          ctx.fillStyle = '#16a34a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.fill(); ctx.stroke();
         });
       }
     };
@@ -883,10 +930,12 @@
       };
 
       map = L.map('map', {
-        center: ASSAM_CENTER,
-        zoom: 7,
+        center: GUWAHATI_CENTER,
+        zoom: 12,
         zoomControl: false,
         preferCanvas: true,
+        fadeAnimation: false,
+        zoomAnimation: true,
         layers: [baseLayers[currentBaseKey]]
       });
 
@@ -1586,7 +1635,7 @@
           if (p.lng < minLng) minLng = p.lng;
           if (p.lng > maxLng) maxLng = p.lng;
         }
-        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [35, 35], maxZoom: 17, animate: false });
+        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [45, 45], maxZoom: 16, animate: false });
       }
 
       renderViewportSmart();
@@ -2005,6 +2054,7 @@
 
       if (byId('topStatLights')) byId('topStatLights').textContent = lights.toLocaleString();
       if (byId('topStatPanels')) byId('topStatPanels').textContent = panelsCount.toLocaleString();
+      if (byId('topStatFaults')) byId('topStatFaults').textContent = faults.toLocaleString();
 
       currentRoadEntries = Array.from(roadCounts.entries())
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
