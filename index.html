@@ -427,7 +427,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v8';
+    const DB_KEY = 'bundled_or_custom_v10';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -479,11 +479,15 @@
         <rect x="9" y="9" width="22" height="22" rx="3" fill="none" stroke="#dcfce7" stroke-width="1.5"/>
         <polygon points="21,11 14,21 20,21 18,29 26,18 20,18" fill="#facc15"/>
       </svg>`,
-      lightWorking: `<svg class="glowing-light-icon" width="26" height="26" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="15" fill="#f59e0b" stroke="#ffffff" stroke-width="2.2"/>
-        <path d="M18 9c-3.8 0-6 2.5-6 5.8 0 2 1 3.5 2 4.8.6.8.9 1.3.9 1.9h6.2c0-.6.3-1.1.9-1.9 1-1.3 2-2.8 2-4.8 0-3.3-2.2-5.8-6-5.8Z" fill="#fffbe6" stroke="#9a5b00" stroke-width=".8"/>
-        <path d="M15.5 24h5M16.2 26.2h3.6" stroke="#334155" stroke-width="1.8" stroke-linecap="round"/>
-        <circle cx="18" cy="14" r="1.5" fill="#ffffff"/>
+      lightWorking: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
+        <path d="M12 28C12 28 3 17.5 3 10.5C3 5.8 7 2 12 2C17 2 21 5.8 21 10.5C21 17.5 12 28 12 28Z" fill="#ea580c" stroke="#ffffff" stroke-width="1.8"/>
+        <circle cx="12" cy="10" r="3.2" fill="#ffffff"/>
+        <path d="M10.2 13.4H13.8" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="12" y1="5.2" x2="12" y2="3.6" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="8.2" y1="6.8" x2="7.0" y2="5.5" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="15.8" y1="6.8" x2="17.0" y2="5.5" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="6.6" y1="10" x2="5.2" y2="10" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="17.4" y1="10" x2="18.8" y2="10" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
       </svg>`,
       lightFaulty: `<svg width="26" height="26" viewBox="0 0 36 36">
         <circle cx="18" cy="17" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5"/>
@@ -562,148 +566,74 @@
     // =========================================================================
     // 2B. PRE-RENDERED HIGH-PERFORMANCE SPRITES (60 FPS on TV & Mobile)
     // =========================================================================
+    function createPinSprite(w, h, pinColor) {
+      const dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 2.5);
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      c.style.width = `${w}px`;
+      c.style.height = `${h}px`;
+      const ctx = c.getContext('2d');
+      ctx.scale(dpr * (w / 24), dpr * (h / 30));
+
+      // Teardrop map pin body pointing down to (12, 28)
+      ctx.beginPath();
+      ctx.moveTo(12, 28);
+      ctx.bezierCurveTo(12, 28, 3, 17.5, 3, 10.5);
+      ctx.arc(12, 10.5, 9, Math.PI, 0, false);
+      ctx.bezierCurveTo(21, 17.5, 12, 28, 12, 28);
+      ctx.closePath();
+
+      ctx.fillStyle = pinColor || '#ea580c';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+
+      // Glowing light bulb core
+      ctx.beginPath();
+      ctx.arc(12, 10, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Base cap
+      ctx.beginPath();
+      ctx.moveTo(10.2, 13.4);
+      ctx.lineTo(13.8, 13.4);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // 5 radiating rays
+      ctx.beginPath();
+      ctx.moveTo(12, 5.2); ctx.lineTo(12, 3.6);
+      ctx.moveTo(8.2, 6.8); ctx.lineTo(7.0, 5.5);
+      ctx.moveTo(15.8, 6.8); ctx.lineTo(17.0, 5.5);
+      ctx.moveTo(6.6, 10); ctx.lineTo(5.2, 10);
+      ctx.moveTo(17.4, 10); ctx.lineTo(18.8, 10);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      return c;
+    }
+
     const SPRITES = {
       initialized: false,
       init() {
         if (this.initialized) return;
         this.initialized = true;
 
-        const makeSprite = (w, h, drawFn) => {
-          const c = document.createElement('canvas');
-          c.width = w;
-          c.height = h;
-          const ctx = c.getContext('2d');
-          drawFn(ctx, w / 2, h / 2);
-          return c;
-        };
-
-        // 1. Working Light (28x28, center 14, 14) - crisp vector bulb, NO wide blur
-        this.lightOn = makeSprite(28, 28, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy - 1, 8.5, 0, Math.PI * 2);
-          ctx.fillStyle = '#f59e0b';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.8;
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy - 1.5, 4.2, 0, Math.PI * 2);
-          ctx.fillStyle = '#fffbe6';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.moveTo(cx - 2.5, cy + 6.5);
-          ctx.lineTo(cx + 2.5, cy + 6.5);
-          ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 1.8;
-          ctx.stroke();
-        });
-
-        // 2. Faulty Light placeholder
-        this.lightOff = this.lightOn;
-
-        // 3. CCMS Panel (30x30, center 15, 15) - crisp rounded green box with yellow lightning bolt
-        this.panel = makeSprite(30, 30, (ctx, cx, cy) => {
-          const w = 22, h = 22, x = cx - 11, y = cy - 11;
-          ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 4.5);
-          else ctx.rect(x, y, w, h);
-          ctx.fillStyle = '#16a34a';
-          ctx.fill();
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(cx + 1, cy - 6);
-          ctx.lineTo(cx - 3.5, cy + 0.3);
-          ctx.lineTo(cx + 0.2, cy + 0.3);
-          ctx.lineTo(cx - 1, cy + 6);
-          ctx.lineTo(cx + 4.5, cy - 0.8);
-          ctx.lineTo(cx + 1, cy - 0.8);
-          ctx.closePath();
-          ctx.fillStyle = '#facc15';
-          ctx.fill();
-        });
-
-        // 4. Single-Decorative (32x32, center 16, 16)
-        this.singleDec = makeSprite(32, 32, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(13, 148, 136, 0.25)';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-          ctx.fillStyle = '#0d9488';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.8;
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy - 1, 3.2, 0, Math.PI * 2);
-          ctx.fillStyle = '#fde047';
-          ctx.fill();
-        });
-
-        // 5. Double-Decorative (34x34, center 17, 17)
-        this.doubleDec = makeSprite(34, 34, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy, 15, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(124, 58, 237, 0.25)';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-          ctx.fillStyle = '#7c3aed';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.8;
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.arc(cx - 2, cy - 1, 2.2, 0, Math.PI * 2);
-          ctx.arc(cx + 2, cy - 1, 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = '#fde047';
-          ctx.fill();
-        });
-
-        // 6. Pole (24x24, center 12, 12)
-        this.pole = makeSprite(24, 24, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
-          ctx.fillStyle = '#334155';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.5;
-          ctx.fill();
-          ctx.stroke();
-        });
-
-        // Low-zoom fast dots (14x14, center 7, 7) for high visibility on 80-inch TV
-        this.dotLight = makeSprite(14, 14, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.arc(cx, cy, 5.2, 0, Math.PI * 2);
-          ctx.fillStyle = '#f59e0b'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
-        });
-        this.dotFaulty = this.dotLight;
-        this.dotPanel = makeSprite(22, 22, (ctx, cx, cy) => {
-          const w = 18, h = 18, x = cx - 9, y = cy - 9;
-          ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 4);
-          else ctx.rect(x, y, w, h);
-          ctx.fillStyle = '#16a34a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.fill(); ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(cx + 0.9, cy - 5);
-          ctx.lineTo(cx - 3, cy + 0.2);
-          ctx.lineTo(cx + 0.2, cy + 0.2);
-          ctx.lineTo(cx - 0.9, cy + 5);
-          ctx.lineTo(cx + 3.8, cy - 0.7);
-          ctx.lineTo(cx + 0.9, cy - 0.7);
-          ctx.closePath();
-          ctx.fillStyle = '#facc15';
-          ctx.fill();
-        });
+        // 1. Compact pin for zoom < 11 (13x17)
+        this.pinSmall = createPinSprite(13, 17, '#ea580c');
+        // 2. Medium pin for zoom 11-12 (16x21) - Exact replicate of Image 2 & 3
+        this.pinMedium = createPinSprite(16, 21, '#ea580c');
+        // 3. Large pin for zoom >= 13 (22x28)
+        this.pinLarge = createPinSprite(22, 28, '#ea580c');
       }
     };
 
@@ -711,11 +641,7 @@
 
     function buildLegend() {
       const items = [
-        { svg: SVG_ICONS.panel, label: 'Panel', key: 'panel' },
-        { svg: SVG_ICONS.lightWorking, label: 'Light', key: 'light' },
-        { svg: SVG_ICONS.singleDecorative, label: 'Single-Decorative', key: 'single-decorative' },
-        { svg: SVG_ICONS.doubleDecorative, label: 'Double-Decorative', key: 'double-decorative' },
-        { svg: SVG_ICONS.pole, label: 'Pole', key: 'pole' }
+        { svg: SVG_ICONS.lightWorking, label: 'Street Light', key: 'light' }
       ];
       byId('customLegend').innerHTML = items.map(i => {
         const isAct = activeLegendFilter === i.key;
@@ -1742,250 +1668,52 @@
           const gridSize = 28;
           const hitGrid = this._hitGrid;
 
-          // Categorize all visible assets
-          const workingLights = [];
-          const decSingle = [];
-          const decDouble = [];
-          const poles = [];
-          const panels = [];
+          // Select pin size dynamically based on zoom (matches 2nd & 3rd user images)
+          let sprite = SPRITES.pinMedium;
+          let pinW = 16, pinH = 21;
+          if (zoom < 11) {
+            sprite = SPRITES.pinSmall;
+            pinW = 13; pinH = 17;
+          } else if (zoom >= 13) {
+            sprite = SPRITES.pinLarge;
+            pinW = 22; pinH = 28;
+          }
+          const anchorX = Math.round(pinW / 2);
+          const anchorY = Math.round(pinH * (28 / 30));
 
-          // Dynamic scale across all zoom levels (crisp white circular badges with colored border & icon center)
-          // Matches Image 2: discrete white rings with amber outline & bulb center, never blending into an orange blob!
-          const outerR = zoom < 10 ? 3.0 : zoom < 11 ? 3.6 : zoom < 12 ? 4.4 : zoom < 13 ? 5.4 : zoom < 15 ? 6.8 : 8.8;
-          const strokeW = zoom < 11 ? 1.1 : zoom < 13 ? 1.3 : 1.7;
-          const innerR = Math.max(1.3, outerR * 0.44);
+          const visiblePoints = [];
 
           for (let i = 0; i < filteredList.length; i++) {
             const r = filteredList[i];
             if (r.lat < minLat || r.lat > maxLat || r.lng < minLng || r.lng > maxLng) continue;
 
-            const isPanel = r.kind === 'panel';
-            if (isPanel && !showPanelMarkers) continue;
-
             const pt = map.latLngToContainerPoint([r.lat, r.lng]);
-            if (pt.x < -24 || pt.y < -24 || pt.x > size.x + 24 || pt.y > size.y + 24) continue;
+            if (pt.x < -30 || pt.y < -30 || pt.x > size.x + 30 || pt.y > size.y + 30) continue;
 
             const active = !!activePanelKey && r.panelKey === activePanelKey;
-
-            if (isPanel) {
-              panels.push({ pt, active, r });
-            } else if (r.kind === 'single-decorative') {
-              decSingle.push(pt);
-            } else if (r.kind === 'double-decorative') {
-              decDouble.push(pt);
-            } else if (r.kind === 'pole') {
-              poles.push(pt);
-            } else {
-              workingLights.push(pt);
-            }
+            visiblePoints.push({ pt, active, r });
 
             const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
             let bucket = hitGrid.get(key);
             if (!bucket) hitGrid.set(key, bucket = []);
-            bucket.push({ x: pt.x, y: pt.y, r: Math.max(outerR + 5, 12), record: r });
+            bucket.push({ x: pt.x, y: pt.y - anchorY / 2, r: 12, record: r });
           }
 
           const opacity = activePanelKey ? 0.22 : 1.0;
 
-          // =========================================================================
-          // 1. WORKING LIGHTS (Crisp white badges with amber border & bulb center)
-          // =========================================================================
-          if (workingLights.length > 0) {
-            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
+          // Draw all survey lights using the exact 2nd image orange teardrop pin (no green squares or clutter)
+          for (let i = 0; i < visiblePoints.length; i++) {
+            const { pt, active } = visiblePoints[i];
+            const alpha = activePanelKey && !active ? opacity : 1.0;
+            if (ctx.globalAlpha !== alpha) ctx.globalAlpha = alpha;
 
-            // Step 1: Crisp white circular badges (prevents colors merging into solid blobs)
-            ctx.beginPath();
-            for (let i = 0; i < workingLights.length; i++) {
-              const p = workingLights[i];
-              ctx.moveTo(p.x + outerR, p.y);
-              ctx.arc(p.x, p.y, outerR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-
-            // Step 2: Golden/amber borders
-            ctx.strokeStyle = '#d97706';
-            ctx.lineWidth = strokeW;
-            ctx.stroke();
-
-            // Step 3: Glowing bulb centers
-            ctx.beginPath();
-            for (let i = 0; i < workingLights.length; i++) {
-              const p = workingLights[i];
-              ctx.moveTo(p.x + innerR, p.y);
-              ctx.arc(p.x, p.y, innerR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#f59e0b';
-            ctx.fill();
-
-            // Step 4: When zoomed in (zoom >= 13), add subtle bulb base for high-detail view
-            if (zoom >= 13) {
-              ctx.beginPath();
-              const capW = innerR * 0.7;
-              for (let i = 0; i < workingLights.length; i++) {
-                const p = workingLights[i];
-                ctx.moveTo(p.x - capW, p.y + innerR + 1.2);
-                ctx.lineTo(p.x + capW, p.y + innerR + 1.2);
-              }
-              ctx.strokeStyle = '#334155';
-              ctx.lineWidth = 1.4;
-              ctx.stroke();
-            }
-          }
-
-          // =========================================================================
-          // 2. SINGLE DECORATIVE LIGHTS (White badge with teal border & lamp center)
-          // =========================================================================
-          if (decSingle.length > 0) {
-            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
-            const decOuterR = outerR + 0.4;
-            const decInnerR = innerR + 0.3;
-
-            ctx.beginPath();
-            for (let i = 0; i < decSingle.length; i++) {
-              const p = decSingle[i];
-              ctx.moveTo(p.x + decOuterR, p.y);
-              ctx.arc(p.x, p.y, decOuterR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.strokeStyle = '#0d9488';
-            ctx.lineWidth = strokeW;
-            ctx.stroke();
-
-            ctx.beginPath();
-            for (let i = 0; i < decSingle.length; i++) {
-              const p = decSingle[i];
-              ctx.moveTo(p.x + decInnerR, p.y);
-              ctx.arc(p.x, p.y, decInnerR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#0d9488';
-            ctx.fill();
-          }
-
-          // =========================================================================
-          // 3. DOUBLE DECORATIVE LIGHTS (White badge with purple border & lamp center)
-          // =========================================================================
-          if (decDouble.length > 0) {
-            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
-            const decOuterR = outerR + 0.6;
-            const decInnerR = innerR + 0.4;
-
-            ctx.beginPath();
-            for (let i = 0; i < decDouble.length; i++) {
-              const p = decDouble[i];
-              ctx.moveTo(p.x + decOuterR, p.y);
-              ctx.arc(p.x, p.y, decOuterR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.strokeStyle = '#7c3aed';
-            ctx.lineWidth = strokeW;
-            ctx.stroke();
-
-            ctx.beginPath();
-            for (let i = 0; i < decDouble.length; i++) {
-              const p = decDouble[i];
-              ctx.moveTo(p.x + decInnerR, p.y);
-              ctx.arc(p.x, p.y, decInnerR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#7c3aed';
-            ctx.fill();
-          }
-
-          // =========================================================================
-          // 4. POLES (White badge with dark slate border & center)
-          // =========================================================================
-          if (poles.length > 0) {
-            ctx.globalAlpha = activePanelKey ? opacity : 0.9;
-            ctx.beginPath();
-            for (let i = 0; i < poles.length; i++) {
-              const p = poles[i];
-              ctx.moveTo(p.x + outerR, p.y);
-              ctx.arc(p.x, p.y, outerR, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = strokeW;
-            ctx.stroke();
-
-            ctx.beginPath();
-            for (let i = 0; i < poles.length; i++) {
-              const p = poles[i];
-              ctx.moveTo(p.x + innerR * 0.9, p.y);
-              ctx.arc(p.x, p.y, innerR * 0.9, 0, Math.PI * 2);
-            }
-            ctx.fillStyle = '#334155';
-            ctx.fill();
-          }
-
-          // =========================================================================
-          // 5. ACTIVE CIRCUIT HIGHLIGHT (Lights on selected panel)
-          // =========================================================================
-          if (activePanelKey) {
-            const activePts = filteredList.filter(r => r.panelKey === activePanelKey && r.kind !== 'panel');
-            ctx.globalAlpha = 1.0;
-            ctx.beginPath();
-            for (let i = 0; i < activePts.length; i++) {
-              const r = activePts[i];
-              if (r.lat < minLat || r.lat > maxLat || r.lng < minLng || r.lng > maxLng) continue;
-              const pt = map.latLngToContainerPoint([r.lat, r.lng]);
-              ctx.moveTo(pt.x + outerR + 3.5, pt.y);
-              ctx.arc(pt.x, pt.y, outerR + 3.5, 0, Math.PI * 2);
-            }
-            ctx.strokeStyle = '#facc15';
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
-          }
-
-          // =========================================================================
-          // 6. CCMS CONTROL PANELS (Crisp green rounded badges with yellow lightning bolt ⚡)
-          // =========================================================================
-          ctx.globalAlpha = 1.0;
-          const pBox = zoom < 11 ? 18 : zoom < 13 ? 22 : 26;
-          const pHalf = pBox / 2;
-          const pScale = pBox / 22;
-
-          for (let i = 0; i < panels.length; i++) {
-            const { pt, active } = panels[i];
-            const px = pt.x, py = pt.y;
-
-            // Green rounded badge
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(px - pHalf, py - pHalf, pBox, pBox, 5);
-            else ctx.rect(px - pHalf, py - pHalf, pBox, pBox);
-            ctx.fillStyle = '#16a34a';
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2.0;
-            ctx.stroke();
-
-            // Inner dark green border for depth
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(px - pHalf + 2, py - pHalf + 2, pBox - 4, pBox - 4, 3);
-            else ctx.rect(px - pHalf + 2, py - pHalf + 2, pBox - 4, pBox - 4);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.lineWidth = 1.0;
-            ctx.stroke();
-
-            // Bold yellow lightning bolt (⚡)
-            ctx.beginPath();
-            ctx.moveTo(px + 1.2 * pScale, py - 6.0 * pScale);
-            ctx.lineTo(px - 3.8 * pScale, py + 0.4 * pScale);
-            ctx.lineTo(px + 0.3 * pScale, py + 0.4 * pScale);
-            ctx.lineTo(px - 1.2 * pScale, py + 6.0 * pScale);
-            ctx.lineTo(px + 4.8 * pScale, py - 0.9 * pScale);
-            ctx.lineTo(px + 1.2 * pScale, py - 0.9 * pScale);
-            ctx.closePath();
-            ctx.fillStyle = '#facc15';
-            ctx.fill();
+            ctx.drawImage(sprite, Math.round(pt.x - anchorX), Math.round(pt.y - anchorY), pinW, pinH);
 
             if (active) {
               ctx.beginPath();
-              ctx.arc(px, py, pHalf + 6, 0, Math.PI * 2);
-              ctx.strokeStyle = '#16a34a';
-              ctx.lineWidth = 3.5;
+              ctx.arc(pt.x, pt.y - anchorY / 2, anchorX + 4, 0, Math.PI * 2);
+              ctx.strokeStyle = '#facc15';
+              ctx.lineWidth = 2.5;
               ctx.stroke();
             }
           }
