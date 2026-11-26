@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dhanpurna CCMS · Live Field Tracking</title>
+  <link rel="stylesheet" href="./vendor/leaflet.css">
+  <style>
+    :root{
+      --ink:#1e293b;--muted:#64748b;--paper:#ffffff;--canvas:#f1f5f9;--line:#e2e8f0;
+      --blue:#0284c7;--green:#16a34a;--red:#dc2626;--purple:#7c3aed;
+      --shadow:0 8px 24px rgba(15,23,42,.10);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--canvas);overflow:hidden}
+    .app{height:100dvh;display:grid;grid-template-rows:auto 1fr}
+
+    /* Top Header */
+    .topbar{min-height:62px;background:var(--paper);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:8px 18px;z-index:500}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand-mark{width:36px;height:36px;border-radius:10px;background:#e0f2fe;display:grid;place-items:center;color:var(--blue)}
+    .brand h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.2px}
+    .brand p{font-size:11.5px;color:var(--muted);margin:2px 0 0}
+    .top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+    .top-stats{display:flex;align-items:center;gap:10px}
+    .top-stat{display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+    .top-stat-icon{display:grid;place-items:center;font-size:15px}
+    .top-stat-info{display:flex;flex-direction:column}
+    .top-stat-label{font-size:10.5px;color:#1e293b;font-weight:700;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
+    .top-stat-value{font-size:16px;font-weight:750;color:#1e293b;letter-spacing:-.3px;line-height:1.2}
+    .top-stat-value.green{color:#1e293b}
+    .top-stat-value.amber{color:#1e293b}
+    .db-badge{display:none}
+    .db-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+    .db-dot.ready{background:var(--green)}
+    .btn{height:36px;padding:0 12px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:.15s}
+    .btn:hover{background:#f8fafc;border-color:#cbd5e1}
+    .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .btn-primary:hover{background:#0369a1;border-color:#0369a1}
+
+    /* Workspace Layout */
+    .workspace{min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr)}
+    .sidebar{background:var(--paper);border-right:1px solid var(--line);overflow-y:auto;padding:16px;z-index:400;scrollbar-width:thin}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+    .stats.stats-three-cols{grid-template-columns:1fr 1fr 1fr}
+    .stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--paper)}
+    .stat-label{display:block;font-size:11px;color:var(--muted);font-weight:600}
+    .stat-value{display:block;margin-top:3px;font-size:20px;font-weight:750;letter-spacing:-.4px}
+    .stat-value.red{color:var(--red)}
+    .stat-value.green{color:var(--green)}
+
+    .field-label{display:block;color:#475569;font-size:11.5px;font-weight:700;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.3px}
+
+    /* Bootstrap-Style Selectable Search Dropdown */
+    .search-wrap{position:relative}
+    .search{width:100%;height:39px;border:1px solid #cbd5e1;border-radius:8px;padding:0 32px 0 12px;font-size:13px;outline:none;background:var(--paper);color:var(--ink);transition:border-color .15s,box-shadow .15s}
+    .search:focus{border-color:#86b7fe;box-shadow:0 0 0 .25rem rgba(13,110,253,.18)}
+    .clear-search{position:absolute;right:6px;top:6px;width:27px;height:27px;border:0;background:transparent;color:#64748b;cursor:pointer;display:none;font-size:17px;border-radius:5px}
+    .clear-search:hover{background:#f1f5f9;color:#0f172a}
+
+    .search-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:1200;background:#fff;border:1px solid rgba(0,0,0,.15);border-radius:8px;box-shadow:0 .5rem 1rem rgba(0,0,0,.15);max-height:270px;overflow-y:auto;display:none;padding:4px 0}
+    .search-dropdown.show{display:block}
+    .dropdown-header{padding:6px 12px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6c757d;background:#f8f9fa;border-top:1px solid #e9ecef;border-bottom:1px solid #e9ecef}
+    .dropdown-header:first-child{border-top:none}
+    .dropdown-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:8px 12px;border:0;background:transparent;text-align:left;font-size:12.5px;color:#212529;cursor:pointer;transition:background .1s}
+    .dropdown-item:hover,.dropdown-item.active{background:#0d6efd;color:#fff}
+    .dropdown-item:hover .item-badge,.dropdown-item.active .item-badge{background:rgba(255,255,255,.22);color:#fff}
+    .dropdown-item:hover .item-sub,.dropdown-item.active .item-sub{color:rgba(255,255,255,.85)}
+    .item-main{min-width:0;flex:1}
+    .item-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+    .item-sub{font-size:10.5px;color:#6c757d;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .item-badge{flex-shrink:0;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:10px;background:#e9ecef;color:#495057}
+    .dropdown-empty{padding:10px 12px;font-size:12px;color:#6c757d;text-align:center}
+
+    .select-box{height:38px;width:100%;border:1px solid #cbd5e1;border-radius:8px;background:var(--paper);padding:0 10px;font-size:13px;outline:none}
+    .city-chips{display:flex;gap:6px;overflow-x:auto;padding:8px 1px 4px;scrollbar-width:thin}
+    .city-chip{flex:0 0 auto;padding:5px 10px;border:1px solid var(--line);background:var(--paper);border-radius:16px;font-size:11px;font-weight:600;color:#475569;cursor:pointer}
+    .city-chip.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+    .filter-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;font-size:12px;font-weight:600;color:#475569}
+    .filter-row select{height:33px;border:1px solid #cbd5e1;border-radius:7px;padding:0 8px;font-size:12px;background:var(--paper);max-width:175px}
+
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin:14px 0;padding:12px;background:var(--canvas);border:1px solid var(--line);border-radius:9px;font-size:11px;font-weight:600;color:#334155}
+    .legend-item{display:flex;align-items:center;gap:8px;min-width:0}
+    .legend-svg{width:26px;height:26px;display:grid;place-items:center;flex-shrink:0;overflow:visible}
+    .legend-svg svg{width:22px;height:22px;display:block}
+
+    .circuit-banner{display:none;margin:10px 0;padding:10px 12px;border-radius:9px;background:#dcfce7;border:1px solid #86efac;color:#14532d;font-size:12px;align-items:center;justify-content:space-between;gap:8px}
+    .circuit-banner.active{display:flex}
+    .circuit-reset{border:1px solid #16a34a;background:#fff;color:#15803d;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer}
+    .circuit-reset:hover{background:#16a34a;color:#fff}
+
+    .section-title{display:flex;align-items:baseline;justify-content:space-between;margin:14px 0 6px}
+    .section-title h3{font-size:12px;margin:0;font-weight:700}
+    .section-title span{font-size:11px;color:var(--muted)}
+    
+    /* Bootstrap-style Road & Bye-Lane Search & Scrollable List */
+    .road-search-box{margin-bottom:8px;position:relative}
+    .road-search-input{width:100%;height:34px;padding:6px 28px 6px 10px;font-size:12px;border:1px solid #ced4da;border-radius:6px;outline:none;background:#fff;color:#212529;transition:border-color .15s ease-in-out,box-shadow .15s ease-in-out}
+    .road-search-input:focus{border-color:#86b7fe;box-shadow:0 0 0 .2rem rgba(13,110,253,.25)}
+    .road-search-clear{position:absolute;right:6px;top:5px;width:24px;height:24px;border:0;background:transparent;color:#6c757d;font-size:16px;cursor:pointer;display:none;line-height:1}
+    .road-search-clear:hover{color:#212529}
+    .road-list{display:flex;flex-direction:column;gap:3px;max-height:300px;overflow-y:auto;padding-right:3px;scrollbar-width:thin}
+    .road-list::-webkit-scrollbar{width:5px}
+    .road-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+    .road-button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;padding:7px 10px;border:1px solid transparent;border-radius:6px;background:transparent;text-align:left;cursor:pointer;color:#212529;transition:background-color .15s ease,border-color .15s ease}
+    .road-button:hover{background:#e9ecef;border-color:#dee2e6}
+    .road-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+    .road-count{border-radius:50rem;padding:2px 8px;background:#0d6efd;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0}
+
+    /* Map Container */
+    .map-wrap{position:relative;min-width:0;min-height:0;background:#e2e8f0}
+    #map{position:absolute;inset:0}
+    .basemap-control{position:absolute;top:12px;left:12px;z-index:650;display:flex;align-items:center;background:rgba(255,255,255,.97);border:1px solid rgba(0,0,0,.12);box-shadow:0 2px 8px rgba(15,23,42,.15);border-radius:6px;padding:3px}
+    .map-layer-btn{min-width:68px;height:32px;padding:0 11px;border:0;border-radius:4px;background:transparent;color:#475569;font-size:13px;font-weight:600;cursor:pointer}
+    .map-layer-btn[aria-pressed="true"]{background:#e8f2ff;color:#0b57d0}
+    .map-layer-btn:focus-visible{outline:2px solid #0d6efd;outline-offset:1px}
+    .map-search-control{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:650;width:min(520px,calc(100% - 210px))}
+    .map-search-control .search{height:42px;padding:0 40px 0 42px;border-color:#e5e7eb;background:rgba(255,255,255,.97);box-shadow:0 2px 8px rgba(15,23,42,.13);font-size:14px}
+    .search-icon{position:absolute;left:14px;top:12px;width:18px;height:18px;color:#64748b;pointer-events:none}
+    .map-search-control .clear-search{top:7px;right:7px}
+    .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .map-toast{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:700;pointer-events:none;background:rgba(15,23,42,.90);color:#fff;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:500;box-shadow:var(--shadow);max-width:85%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .map-toast.hidden{display:none}
+    .map-note{position:absolute;z-index:500;left:14px;bottom:14px;background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:11px;font-weight:600;color:#334155;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+
+    /* Dropzone / Loading Overlay */
+    .upload-overlay{position:absolute;inset:0;z-index:900;background:rgba(241,245,249,.94);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px}
+    .upload-overlay.hidden{display:none}
+    .drop-card{background:#fff;border:2px dashed #94a3b8;border-radius:16px;padding:34px 28px;max-width:440px;width:100%;text-align:center;box-shadow:var(--shadow);transition:.2s}
+    .drop-card.dragover{border-color:var(--blue);background:#f0f9ff;transform:scale(1.01)}
+    .drop-icon{width:52px;height:52px;margin:0 auto 12px;border-radius:14px;background:#e0f2fe;color:var(--blue);display:grid;place-items:center}
+    .drop-card h2{margin:0 0 8px;font-size:18px}
+    .drop-card p{margin:0 0 18px;color:var(--muted);font-size:13px;line-height:1.5}
+    .progress-bar{width:100%;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:14px;display:none}
+    .progress-fill{height:100%;width:0%;background:var(--blue);transition:width .15s}
+
+    /* Vector Icons & Interactive Animations */
+    .asset-svg-icon{display:grid;place-items:center;transition:transform .18s ease,filter .18s ease}
+    .asset-svg-icon:hover{transform:scale(1.22);z-index:999!important}
+    .asset-svg-icon.panel-active{filter:drop-shadow(0 0 14px rgba(22,163,74,.95));transform:scale(1.28)!important;z-index:1002!important}
+    .asset-svg-icon.light-connected{filter:drop-shadow(0 0 12px rgba(250,204,21,1)) drop-shadow(0 0 24px rgba(234,179,8,.85)) brightness(1.15);transform:scale(1.22)!important;z-index:1001!important}
+    .asset-svg-icon.marker-dimmed{opacity:.28}
+
+    /* Glowing animations for light icons */
+    @keyframes bulbGlowPulse {
+      0%, 100% {
+        filter: drop-shadow(0 0 4px rgba(246, 168, 0, 0.85)) drop-shadow(0 0 9px rgba(250, 204, 21, 0.65));
+      }
+      50% {
+        filter: drop-shadow(0 0 7px rgba(246, 168, 0, 1)) drop-shadow(0 0 15px rgba(250, 204, 21, 0.95)) drop-shadow(0 0 22px rgba(253, 224, 71, 0.7));
+      }
+    }
+    .glowing-light-icon {
+      animation: bulbGlowPulse 2.2s ease-in-out infinite;
+    }
+    .legend-svg .glowing-light-icon {
+      display: block;
+    }
+    @keyframes circuitFlow{to{stroke-dashoffset:-24}}
+    .circuit-flow-line{animation:circuitFlow .65s linear infinite;filter:drop-shadow(0 0 1.5px rgba(255,213,74,.75))}
+    @keyframes circuitPulse{to{stroke-dashoffset:-44}}
+    .circuit-electric-pulse{animation:circuitPulse 1.05s linear infinite;filter:drop-shadow(0 0 3px rgba(255,223,99,.95))}
+
+    /* Popup */
+    .popup{min-width:220px;max-width:280px}
+    .popup-title{font-size:13px;font-weight:700;margin:0 0 6px;padding-bottom:5px;border-bottom:1px solid #e2e8f0}
+    .popup-meta{display:grid;grid-template-columns:86px 1fr;gap:4px 6px;font-size:11.5px}
+    .popup-key{color:#64748b}
+    .popup-value{color:#1e293b;font-weight:500;overflow-wrap:anywhere}
+    .status-tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10.5px;font-weight:700;background:#dcfce7;color:#15803d}
+    .status-tag.bad{background:#fee2e2;color:#b91c1c}
+    .status-tag.unknown{background:#f1f5f9;color:#475569}
+    .popup-actions{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px}
+    .popup-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;border-radius:6px;padding:5px 9px;color:var(--blue);background:#fff;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer}
+    .popup-btn.primary{background:#dcfce7;border-color:#16a34a;color:#15803d}
+    .popup-btn:hover{filter:brightness(.97)}
+
+    .render-note{margin:5px 0 2px;color:#64748b;font-size:11px}
+    .filter-row input[type="checkbox"]{width:20px;height:20px;accent-color:#16834a;cursor:pointer}
+    .presentation-tools{display:none}
+    .tv-title{display:none;position:absolute;z-index:700;top:12px;right:12px;max-width:min(320px,60vw);padding:10px 14px;border:1px solid rgba(255,255,255,.85);border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 2px 10px rgba(15,23,42,.16);color:#1e293b}
+    .tv-title strong{display:block;font-size:15px;line-height:1.25}
+    .tv-title span{display:block;margin-top:3px;color:#64748b;font-size:12px}
+    .dashboard-hidden .workspace{grid-template-columns:minmax(0,1fr)}
+    .dashboard-hidden .sidebar{display:none}
+    .presentation-mode .app{grid-template-rows:1fr}
+    .presentation-mode .topbar,
+    .presentation-mode .sidebar,
+    .presentation-mode .map-note{display:none}
+    .presentation-mode .tv-title{display:block}
+    .presentation-mode .workspace{grid-template-columns:minmax(0,1fr)}
+    .presentation-mode .presentation-tools{position:absolute;z-index:1000;top:12px;left:12px;display:flex;gap:8px}
+    .presentation-mode .presentation-tools .btn{min-height:44px;background:rgba(255,255,255,.96);box-shadow:0 2px 10px rgba(15,23,42,.16)}
+    .exit-tv-header{display:none}
+    .presentation-mode .exit-tv-header{display:inline-flex}
+    .presentation-mode.presentation-controls-open .presentation-tools,
+    .presentation-mode.presentation-controls-open .tv-title{display:none}
+    .presentation-mode.presentation-controls-open .topbar{display:flex;position:absolute;inset:0 0 auto 0}
+    .presentation-mode.presentation-controls-open .workspace{padding-top:64px;grid-template-columns:minmax(290px,340px) minmax(0,1fr)}
+    .presentation-mode.presentation-controls-open .sidebar{display:block;position:relative;max-height:calc(100dvh - 64px)}
+    .presentation-mode.presentation-controls-open .basemap-control{display:flex}
+    .presentation-mode.presentation-controls-open .map-note{display:block}
+    .asset-canvas-layer{outline:none}
+    .asset-canvas-layer:focus-visible{box-shadow:inset 0 0 0 3px #2783de}
+    @media (prefers-reduced-motion: reduce){.circuit-flow-line,.circuit-electric-pulse{animation:none!important}}
+    @media (max-width:900px){
+      .topbar{gap:8px;padding:8px 12px;flex-wrap:wrap}
+      .top-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}
+      .btn{min-height:40px;padding:0 10px}
+      .brand h1{font-size:14px}
+    }
+    @media (max-width:768px){
+      .workspace{grid-template-columns:1fr;grid-template-rows:42% 58%}
+      .sidebar{border-right:0;border-bottom:1px solid var(--line)}
+      .db-badge{display:none}
+      .topbar{min-height:62px;align-items:flex-start}
+      .top-actions{width:100%;margin-left:0;justify-content:flex-start}
+      .top-actions .btn{font-size:11.5px}
+      .brand{flex:1}
+      .presentation-mode.presentation-controls-open .workspace{grid-template-columns:1fr;grid-template-rows:1fr;padding-top:160px}
+      .presentation-mode.presentation-controls-open .sidebar{position:absolute;top:160px;left:0;right:0;z-index:700;max-height:34dvh}
+      .presentation-mode.presentation-controls-open .topbar{min-height:148px}
+      .map-search-control{top:58px;width:calc(100% - 24px)}
+      .basemap-control{top:10px;left:12px}
+    }
+  </style>
+</head>
+<body class="dashboard-hidden">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18h6M10 22h4M12 2v1M4.2 4.2l.7.7M19.8 4.2l-.7.7M2 12h1M21 12h1M15.5 14a5 5 0 1 0-7 0c.6.6 1 1.4 1 2.2V17h5v-.8c0-.8.4-1.6 1-2.2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Dhanpurna CCMS · Live Field Tracking</h1>
+          <p id="fileMetaLabel">Loading shared inventory…</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <div class="top-stats">
+          <div class="top-stat" title="Total active street lights">
+            <span class="top-stat-icon">💡</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Total Lights</span>
+              <strong class="top-stat-value" id="topStatLights">0</strong>
+            </div>
+          </div>
+          <div class="top-stat" title="Total CCMS control panels">
+            <span class="top-stat-icon">⚡</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Panels</span>
+              <strong class="top-stat-value" id="topStatPanels">360</strong>
+            </div>
+          </div>
+        </div>
+
+        <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
+        <button class="btn" id="refreshBtn" type="button" title="Refresh data and map view">↻ Refresh</button>
+        <button class="btn" id="toggleDashboardBtn" type="button" aria-expanded="false" title="Show or hide filters and stats sidebar">Filters</button>
+        <button class="btn exit-tv-header" id="exitTvHeaderBtn" type="button">Exit TV</button>
+        <button class="btn btn-primary" id="uploadCsvBtn" type="button" title="Preview a CSV update in this browser; publish data.csv beside the app to share it" onclick="document.getElementById('csvFileInput').click()">
+          ↑ Replace CSV
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar">
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Total Lights</span><strong class="stat-value" id="statLights">0</strong></div>
+          <div class="stat"><span class="stat-label">Not Working</span><strong class="stat-value red" id="statFaults">0</strong></div>
+        </div>
+
+        <div class="circuit-banner" id="circuitBanner">
+          <div>
+            <strong id="circuitBannerTitle">Panel Circuit Active</strong>
+            <div id="circuitBannerSub" style="font-size:11px;margin-top:2px;">Showing connected bye-lanes</div>
+          </div>
+          <button type="button" class="circuit-reset" id="clearCircuitBtn">Clear</button>
+        </div>
+
+        <!-- City / Municipality hidden as all records belong to the same project -->
+        <div style="display:none;">
+          <select class="select-box" id="citySelect"><option value="">All cities</option></select>
+          <div class="city-chips" id="cityChips"></div>
+        </div>
+
+        <div class="filter-row">
+          <label for="statusSelect">Light Status</label>
+          <select id="statusSelect">
+            <option value="all">All statuses</option>
+            <option value="working">Working</option>
+            <option value="faulty">Not working</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+
+        <div class="filter-row">
+          <label for="showPanelMarkers">Panel markers</label>
+          <input id="showPanelMarkers" type="checkbox" aria-label="Show panel markers on the map">
+        </div>
+        <div class="render-note">Fast canvas rendering · designed for 50K points</div>
+
+        <div class="legend" id="customLegend"></div>
+
+        <div class="section-title">
+          <h3>Roads &amp; Bye-Lanes</h3>
+          <span id="roadCountLabel"></span>
+        </div>
+        <div class="road-search-box">
+          <input type="text" class="road-search-input" id="laneSearchInput" placeholder="Search bye-lane / road..." aria-label="Search roads and bye-lanes">
+          <button type="button" class="road-search-clear" id="clearLaneSearch" title="Clear search">×</button>
+        </div>
+        <div class="road-list" id="roadList"></div>
+      </aside>
+
+      <section class="map-wrap">
+        <div id="map"></div>
+
+        <div class="basemap-control" role="group" aria-label="Map view">
+          <button class="map-layer-btn" type="button" data-map-layer="googleStreet" aria-pressed="true">Map</button>
+          <button class="map-layer-btn" type="button" data-map-layer="googleSatellite" aria-pressed="false">Satellite</button>
+        </div>
+        <div class="map-search-control">
+          <label class="visually-hidden" for="searchInput">Search city, panel, road, or location</label>
+          <div class="search-wrap" id="searchBoxContainer">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m16 16 4.3 4.3"></path>
+            </svg>
+            <input class="search" id="searchInput" type="text" placeholder="Search city, panel, road or location…" autocomplete="off" aria-autocomplete="list" aria-controls="searchDropdown">
+            <button class="clear-search" id="clearSearch" type="button" title="Clear search" aria-label="Clear search">×</button>
+            <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
+          </div>
+        </div>
+
+        <div class="map-toast hidden" id="mapToast"></div>
+        <div class="map-note">💡 Click a light for details · click a panel to trace its road feeder</div>
+        <div class="tv-title" aria-live="polite">
+          <strong>Dhanpurna CCMS · Live Field Tracking</strong>
+          <span id="tvAssetCount">Loading asset data…</span>
+        </div>
+
+        <!-- Overlay (Shown while loading bundled data.csv or if data.csv is missing) -->
+        <div class="upload-overlay" id="uploadOverlay">
+          <div class="drop-card" id="dropCard">
+            <div class="drop-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+            </div>
+            <h2 id="overlayTitle">Loading Shared Asset Data…</h2>
+            <p id="overlayDesc">Survey points load automatically from the shared <code>data.csv</code>. Upload a CSV only when you want to preview a replacement.</p>
+            <button class="btn btn-primary" id="manualSelectBtn" type="button" style="display:none" onclick="document.getElementById('csvFileInput').click()">
+              Upload replacement CSV
+            </button>
+            <div class="progress-bar" id="progressBar" style="display:block"><div class="progress-fill" id="progressFill" style="width:45%"></div></div>
+            <div id="uploadStatusText" style="margin-top:10px;font-size:12px;color:#64748b;">Connecting to shared data.csv…</div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="presentation-tools" id="presentationTools" aria-label="Presentation controls">
+      <button class="btn" id="tvControlsBtn" type="button">Show panels</button>
+      <button class="btn" id="fullscreenBtn" type="button">Full screen</button>
+      <button class="btn" id="exitTvBtn" type="button">Exit TV view</button>
+    </div>
+  </div>
+
+  <script src="./vendor/leaflet.js"></script>
+  <script src="./vendor/papaparse.min.js"></script>
+
+  <script>
+    'use strict';
+
+    // =========================================================================
+    // 1. BUNDLED CSV CONFIGURATION & INDEXED-DB CACHE
+    // =========================================================================
+    const BUNDLED_CSV_PATH = './data.csv';
+    const DB_NAME = 'AssamStreetLightDB';
+    const DB_STORE = 'datasets';
+    const DB_KEY = 'bundled_or_custom_v4';
+
+    function openLocalDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveDatasetToCache(payload) {
+      try {
+        const db = await openLocalDB();
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(payload, DB_KEY);
+        return new Promise(res => { tx.oncomplete = res; tx.onerror = res; });
+      } catch (e) { console.warn('Cache save skipped:', e); }
+    }
+
+    async function loadDatasetFromCache() {
+      try {
+        const db = await openLocalDB();
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const req = tx.objectStore(DB_STORE).get(DB_KEY);
+        return new Promise(res => {
+          req.onsuccess = () => res(req.result || null);
+          req.onerror = () => res(null);
+        });
+      } catch (e) { return null; }
+    }
+
+    // =========================================================================
+    // 2. DISTINCT VECTOR SVG ICONS & CACHED ICON INSTANCES
+    // =========================================================================
+    const SVG_ICONS = {
+      panel: `<svg width="34" height="34" viewBox="0 0 40 40">
+        <rect x="4" y="4" width="32" height="32" rx="7" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/>
+        <rect x="9" y="9" width="22" height="22" rx="3" fill="none" stroke="#dcfce7" stroke-width="1.5"/>
+        <polygon points="21,11 14,21 20,21 18,29 26,18 20,18" fill="#facc15"/>
+      </svg>`,
+      lightWorking: `<svg class="glowing-light-icon" width="26" height="26" viewBox="0 0 36 36">
+        <defs>
+          <filter id="bulbGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <!-- Outer luminous aura -->
+        <circle cx="18" cy="17" r="16.5" fill="rgba(250, 204, 21, 0.35)" filter="url(#bulbGlow)"/>
+        <!-- Bulb body -->
+        <circle cx="18" cy="17" r="15" fill="#f6a800" stroke="#ffffff" stroke-width="2.5"/>
+        <path d="M18 7.5c-4 0-6.5 2.8-6.5 6.4 0 2.3 1.2 3.8 2.3 5.2.7.9 1 1.4 1 2.1h6.4c0-.7.3-1.2 1-2.1 1.1-1.4 2.3-2.9 2.3-5.2 0-3.6-2.5-6.4-6.5-6.4Z" fill="#fffbe6" stroke="#9a5b00" stroke-width=".9"/>
+        <path d="M15.5 23h5M16.2 25.3h3.6" stroke="#334155" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="18" cy="13.5" r="1.4" fill="#ffffff"/>
+      </svg>`,
+      lightFaulty: `<svg width="26" height="26" viewBox="0 0 36 36">
+        <circle cx="18" cy="17" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5"/>
+        <path d="M18 7.5c-4 0-6.5 2.8-6.5 6.4 0 2.3 1.2 3.8 2.3 5.2.7.9 1 1.4 1 2.1h6.4c0-.7.3-1.2 1-2.1 1.1-1.4 2.3-2.9 2.3-5.2 0-3.6-2.5-6.4-6.5-6.4Z" fill="#fff1f2" stroke="#7f1d1d" stroke-width=".9"/>
+        <path d="m15.5 12 5 5m0-5-5 5M15.5 23h5M16.2 25.3h3.6" stroke="#7f1d1d" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>`,
+      singleDecorative: `<svg width="30" height="30" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="16" fill="#0d9488" stroke="#ffffff" stroke-width="2"/>
+        <line x1="17" y1="11" x2="17" y2="30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M17 14 Q24 10 24 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="24" cy="16.5" r="3.5" fill="#facc15"/>
+        <circle cx="17" cy="9.5" r="2" fill="#ffffff"/>
+      </svg>`,
+      doubleDecorative: `<svg width="32" height="32" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+        <line x1="18" y1="10" x2="18" y2="30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M18 15 Q11 10 10 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <path d="M18 15 Q25 10 26 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="10" cy="16.5" r="3.2" fill="#facc15"/>
+        <circle cx="26" cy="16.5" r="3.2" fill="#facc15"/>
+      </svg>`,
+      pole: `<svg width="24" height="24" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15" fill="#334155" stroke="#ffffff" stroke-width="2"/>
+        <line x1="18" y1="8" x2="18" y2="28" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+        <line x1="11" y1="13" x2="25" y2="13" stroke="#f8fafc" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="13" y1="18" x2="23" y2="18" stroke="#f8fafc" stroke-width="2" stroke-linecap="round"/>
+      </svg>`
+    };
+
+    const ICON_POOL = {};
+    function getPooledIcon(kind, isFaulty, stateClass) {
+      const key = `${kind}|${isFaulty ? 'bad' : 'ok'}|${stateClass}`;
+      if (ICON_POOL[key]) return ICON_POOL[key];
+
+      let svg = SVG_ICONS.lightWorking;
+      let size = [26, 26];
+      if (kind === 'panel') { svg = SVG_ICONS.panel; size = [34, 34]; }
+      else if (kind === 'double-decorative') { svg = SVG_ICONS.doubleDecorative; size = [32, 32]; }
+      else if (kind === 'single-decorative') { svg = SVG_ICONS.singleDecorative; size = [30, 30]; }
+      else if (kind === 'pole') { svg = SVG_ICONS.pole; size = [24, 24]; }
+      else if (isFaulty) { svg = SVG_ICONS.lightFaulty; size = [26, 26]; }
+
+      ICON_POOL[key] = L.divIcon({
+        className: `asset-svg-icon ${stateClass}`,
+        html: svg,
+        iconSize: size,
+        iconAnchor: [size[0] / 2, size[1] / 2],
+        popupAnchor: [0, -(size[1] / 2)]
+      });
+      return ICON_POOL[key];
+    }
+
+    // =========================================================================
+    // 3. APPLICATION STATE & SEARCH INDEX
+    // =========================================================================
+    const ASSAM_CENTER = [26.2, 92.9];
+    const MAX_CIRCUIT_VERTICES = 2600;
+
+    let allRecords = [];
+    let filteredList = [];
+    let currentRoadEntries = [];
+    let searchCatalog = { cities: [], panels: [], roads: [] };
+    let lightCountsByPanel = new Map();
+    let showPanelMarkers = true;
+    let activeDropdownIdx = -1;
+
+    let map, baseLayers, currentBaseKey = new URLSearchParams(window.location.search).get('layer') === 'googleSatellite'
+      ? 'googleSatellite' : 'googleStreet';
+    let bulkCanvasLayer, circuitLayer, circuitRenderer;
+    let activePanelKey = '';
+    let searchTimer = null;
+    let moveRenderTimer = null;
+
+    const byId = id => document.getElementById(id);
+
+    function buildLegend() {
+      const items = [
+        { svg: SVG_ICONS.panel, label: 'Panel' },
+        { svg: SVG_ICONS.lightWorking, label: 'Light' },
+        { svg: SVG_ICONS.singleDecorative, label: 'Single-Decorative' },
+        { svg: SVG_ICONS.doubleDecorative, label: 'Double-Decorative' },
+        { svg: SVG_ICONS.lightFaulty, label: 'Not Working' },
+        { svg: SVG_ICONS.pole, label: 'Pole' }
+      ];
+      byId('customLegend').innerHTML = items.map(i =>
+        `<div class="legend-item"><span class="legend-svg">${i.svg}</span><span>${i.label}</span></div>`
+      ).join('');
+    }
+
+    async function initApp() {
+      buildLegend();
+      initMap();
+      bindEvents();
+      applyInitialViewSettings();
+
+      const cached = await loadDatasetFromCache();
+      if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+        allRecords = cached.records;
+        byId('uploadOverlay').classList.add('hidden');
+        updateCacheIndicator(cached.fileName, allRecords.length, cached.savedAt);
+        if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
+        buildSearchCatalog();
+        buildCityControls();
+        applySharedFiltersFromUrl();
+        applyFilters(true);
+      }
+
+      if (location.protocol === 'file:') {
+        if (!cached || !Array.isArray(cached.records) || cached.records.length === 0) {
+          const loaded = await loadEmbeddedCsv();
+          if (!loaded) {
+            showManualUploadPrompt('The included survey data could not be read. Extract the full app folder, including data-embedded.js and vendor/.');
+          }
+        }
+        return;
+      }
+      // Hosted data.csv is the shared source of truth. A local upload is only a
+      // preview/cache for this browser and must never block the hosted refresh.
+      await fetchAndLoadBundledCsv(cached);
+    }
+
+    async function fetchAndLoadBundledCsv(existingCache = null) {
+      if (location.protocol === 'file:') {
+        showManualUploadPrompt('Browsers block loading a nearby data.csv from a file:// page. Select the CSV manually, or host index.html, data.csv, and vendor/ together over HTTPS for a shared TV link.');
+        return;
+      }
+      try {
+        let remoteSig = '';
+        try {
+          const headRes = await fetch(BUNDLED_CSV_PATH, { method: 'HEAD', cache: 'no-cache' });
+          if (headRes.ok) {
+            remoteSig = `${headRes.headers.get('etag') || ''}|${headRes.headers.get('last-modified') || ''}|${headRes.headers.get('content-length') || ''}`;
+          }
+        } catch (_) {
+          // Some static hosts do not support HEAD. The GET below is the source of truth.
+        }
+
+        if (existingCache && !existingCache.isCustomUpload && remoteSig && existingCache.signature === remoteSig && existingCache.records.length > 0) {
+          return;
+        }
+
+        if (!existingCache) {
+          byId('uploadOverlay').classList.remove('hidden');
+          byId('progressBar').style.display = 'block';
+          byId('progressFill').style.width = '35%';
+          byId('uploadStatusText').textContent = 'Downloading shared data.csv…';
+        } else {
+          showToast('🔄 Updating map with newer data.csv…');
+        }
+
+        const res = await fetch(`${BUNDLED_CSV_PATH}?v=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Could not download data.csv (HTTP ${res.status})`);
+        const responseSig = `${res.headers.get('etag') || ''}|${res.headers.get('last-modified') || ''}|${res.headers.get('content-length') || ''}`;
+        const datasetSignature = responseSig || remoteSig;
+        const csvBlob = await res.blob();
+        byId('progressFill').style.width = '45%';
+        byId('uploadStatusText').textContent = 'Parsing and indexing coordinates…';
+        const parsed = await parseCsvSource(csvBlob);
+        if (parsed.records.length === 0) {
+          const loaded = await loadEmbeddedCsv();
+          if (!loaded) showManualUploadPrompt('Shared data.csv has no valid coordinates, and the included fallback data could not be read.');
+          return;
+        }
+
+        allRecords = parsed.records;
+        const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+        await saveDatasetToCache({
+          fileName: 'data.csv (Shared)',
+          savedAt: nowStr,
+          signature: datasetSignature,
+          isCustomUpload: false,
+          records: allRecords
+        });
+
+        byId('uploadOverlay').classList.add('hidden');
+        if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
+        updateCacheIndicator('data.csv (Shared)', allRecords.length, nowStr);
+        clearActiveCircuit(false);
+        buildSearchCatalog();
+        buildCityControls();
+        applySharedFiltersFromUrl();
+        applyFilters(true);
+        showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from shared data.csv`);
+      } catch (err) {
+        console.warn('Shared CSV load failed:', err);
+        if (!existingCache || existingCache.records.length === 0) {
+          const loaded = await loadEmbeddedCsv();
+          if (!loaded) {
+            showManualUploadPrompt(`Could not load shared data.csv (${err.message || 'network or hosting error'}), and the included fallback was unavailable. Keep data.csv and data-embedded.js beside index.html.`);
+          }
+        } else {
+          showToast('Could not refresh shared data.csv; showing the saved copy on this device.');
+        }
+      }
+    }
+
+    async function loadEmbeddedCsv() {
+      try {
+        if (typeof window.DHANPURNA_CSV_TEXT !== 'string') {
+          await new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = './data-embedded.js';
+            script.onload = resolve;
+            script.onerror = resolve;
+            document.head.appendChild(script);
+          });
+        }
+        if (typeof window.DHANPURNA_CSV_TEXT !== 'string') return false;
+        byId('uploadOverlay').classList.remove('hidden');
+        byId('overlayTitle').textContent = 'Loading included survey data…';
+        byId('uploadStatusText').textContent = 'Reading the packaged CSV data…';
+        const source = new Blob([window.DHANPURNA_CSV_TEXT], { type: 'text/csv' });
+        const parsed = await parseCsvSource(source, false);
+        if (!parsed.records.length) return false;
+
+        allRecords = parsed.records;
+        const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        await saveDatasetToCache({
+          fileName: 'Included survey data',
+          savedAt: nowStr,
+          signature: 'embedded-survey-v1',
+          isCustomUpload: false,
+          records: allRecords
+        });
+        byId('uploadOverlay').classList.add('hidden');
+        if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = location.protocol === 'file:' ? 'none' : 'inline-flex';
+        updateCacheIndicator('Included survey data', allRecords.length, nowStr);
+        clearActiveCircuit(false);
+        buildSearchCatalog();
+        buildCityControls();
+        applySharedFiltersFromUrl();
+        applyFilters(true);
+        showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from included survey data`);
+        return true;
+      } catch (error) {
+        console.warn('Included CSV fallback failed:', error);
+        return false;
+      }
+    }
+
+    function showManualUploadPrompt(message) {
+      byId('uploadOverlay').classList.remove('hidden');
+      byId('overlayTitle').textContent = 'Shared survey data unavailable';
+      byId('overlayDesc').textContent = message;
+      byId('manualSelectBtn').style.display = 'inline-flex';
+      byId('progressBar').style.display = 'none';
+      byId('uploadStatusText').textContent = '';
+    }
+
+    function initMap() {
+      baseLayers = {
+        googleStreet: L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+          maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps'
+        }),
+        googleSatellite: L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+          maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Satellite'
+        })
+      };
+
+      map = L.map('map', {
+        center: ASSAM_CENTER,
+        zoom: 7,
+        zoomControl: false,
+        preferCanvas: true,
+        layers: [baseLayers[currentBaseKey]]
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // Keep only the small circuit overlay on SVG so its electric dash
+      // animation is smooth; the 39K asset markers stay on the faster canvas.
+      circuitRenderer = L.svg({ padding: 0.5 }).addTo(map);
+      circuitLayer = L.layerGroup().addTo(map);
+      bulkCanvasLayer = createBulkCanvasLayer().addTo(map);
+
+      map.on('moveend zoomend', () => {
+        clearTimeout(moveRenderTimer);
+        moveRenderTimer = setTimeout(renderViewportSmart, 40);
+      });
+
+      map.on('click', () => {
+        if (activePanelKey) clearActiveCircuit(true);
+      });
+    }
+
+    // =========================================================================
+    // 4. BOOTSTRAP-STYLE SELECTABLE AUTOCOMPLETE SEARCH
+    // =========================================================================
+    function buildSearchCatalog() {
+      const cityMap = new Map();
+      const panelMap = new Map();
+      const roadMap = new Map();
+      const lightCounts = new Map();
+
+      for (let i = 0; i < allRecords.length; i++) {
+        const r = allRecords[i];
+
+        if (r.city && r.city !== 'Unassigned city') {
+          cityMap.set(r.city, (cityMap.get(r.city) || 0) + 1);
+        }
+
+        if (r.panelKey && r.kind !== 'panel') lightCounts.set(r.panelKey, (lightCounts.get(r.panelKey) || 0) + 1);
+
+        if (r.panelKey && r.panel && r.panel !== 'Panel not specified') {
+          if (!panelMap.has(r.panelKey)) {
+            panelMap.set(r.panelKey, {
+              key: r.panelKey,
+              label: r.panel,
+              city: r.city,
+              lane: r.lane,
+              count: 0
+            });
+          }
+          panelMap.get(r.panelKey).count++;
+        }
+
+        if (r.lane && r.lane !== 'Lane not specified') {
+          const roadKey = `${r.city}|${r.lane}`.toLowerCase();
+          if (!roadMap.has(roadKey)) {
+            roadMap.set(roadKey, {
+              label: r.lane,
+              city: r.city,
+              count: 0
+            });
+          }
+          roadMap.get(roadKey).count++;
+        }
+      }
+
+      lightCountsByPanel = lightCounts;
+      searchCatalog = {
+        cities: Array.from(cityMap.entries()).map(([name, count]) => ({ name, count })),
+        panels: Array.from(panelMap.values()),
+        roads: Array.from(roadMap.values())
+      };
+    }
+
+    function highlightMatch(text, query) {
+      const safeText = esc(text);
+      if (!query) return safeText;
+      const escapedQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return safeText.replace(new RegExp(`(${escapedQ})`, 'ig'), '<strong>$1</strong>');
+    }
+
+    function renderSearchDropdown(rawVal) {
+      const dropdown = byId('searchDropdown');
+      const query = rawVal.toLowerCase().trim();
+      activeDropdownIdx = -1;
+
+      if (!query) {
+        dropdown.classList.remove('show');
+        dropdown.innerHTML = '';
+        return;
+      }
+
+      const matchedCities = searchCatalog.cities
+        .filter(c => c.name.toLowerCase().includes(query))
+        .slice(0, 5);
+
+      const matchedPanels = searchCatalog.panels
+        .filter(p => p.label.toLowerCase().includes(query) || p.city.toLowerCase().includes(query))
+        .slice(0, 8);
+
+      const matchedRoads = searchCatalog.roads
+        .filter(r => r.label.toLowerCase().includes(query) || r.city.toLowerCase().includes(query))
+        .slice(0, 10);
+
+      if (matchedCities.length === 0 && matchedPanels.length === 0 && matchedRoads.length === 0) {
+        dropdown.innerHTML = `<div class="dropdown-empty">No matching city, panel, or road for "${esc(rawVal)}"</div>`;
+        dropdown.classList.add('show');
+        return;
+      }
+
+      let html = '';
+
+      if (matchedCities.length > 0) {
+        html += `<div class="dropdown-header">Cities (${matchedCities.length})</div>`;
+        matchedCities.forEach(c => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="city" data-val="${esc(c.name)}">
+              <div class="item-main">
+                <span class="item-title">📍 ${highlightMatch(c.name, query)}</span>
+              </div>
+              <span class="item-badge">${c.count.toLocaleString()}</span>
+            </button>`;
+        });
+      }
+
+      if (matchedPanels.length > 0) {
+        html += `<div class="dropdown-header">Panels (${matchedPanels.length})</div>`;
+        matchedPanels.forEach(p => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="panel" data-key="${esc(p.key)}" data-val="${esc(p.label)}" data-city="${esc(p.city)}">
+              <div class="item-main">
+                <span class="item-title">⚡ ${highlightMatch(p.label, query)}</span>
+                <span class="item-sub">${esc(p.city)} · ${esc(p.lane)}</span>
+              </div>
+              <span class="item-badge">${p.count} pts</span>
+            </button>`;
+        });
+      }
+
+      if (matchedRoads.length > 0) {
+        html += `<div class="dropdown-header">Roads &amp; Bye-Lanes (${matchedRoads.length})</div>`;
+        matchedRoads.forEach(r => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="road" data-val="${esc(r.label)}" data-city="${esc(r.city)}">
+              <div class="item-main">
+                <span class="item-title">🛣️ ${highlightMatch(r.label, query)}</span>
+                <span class="item-sub">${esc(r.city)}</span>
+              </div>
+              <span class="item-badge">${r.count}</span>
+            </button>`;
+        });
+      }
+
+      dropdown.innerHTML = html;
+      dropdown.classList.add('show');
+    }
+
+    function selectDropdownOption(itemEl) {
+      if (!itemEl) return;
+      const type = itemEl.dataset.type;
+      const val = itemEl.dataset.val;
+      const city = itemEl.dataset.city || '';
+      const dropdown = byId('searchDropdown');
+
+      dropdown.classList.remove('show');
+      byId('searchInput').value = val;
+      byId('clearSearch').style.display = 'block';
+
+      if (type === 'city') {
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        byId('citySelect').value = val;
+        clearActiveCircuit(false);
+        applyFilters(true);
+        showToast(`📍 Showing all assets in ${val}`);
+      } else if (type === 'panel') {
+        if (city && byId('citySelect').value && byId('citySelect').value !== city) {
+          byId('citySelect').value = city;
+        }
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        applyFilters(false);
+        activatePanelCircuit(itemEl.dataset.key, true);
+      } else if (type === 'road') {
+        if (city && byId('citySelect').value && byId('citySelect').value !== city) {
+          byId('citySelect').value = city;
+        }
+        clearActiveCircuit(false);
+        applyFilters(true);
+      }
+    }
+
+    function bindEvents() {
+      byId('csvFileInput').addEventListener('change', e => {
+        if (e.target.files && e.target.files[0]) processManualCsvFile(e.target.files[0]);
+        e.target.value = '';
+      });
+
+      byId('showPanelMarkers').addEventListener('change', e => {
+        showPanelMarkers = e.target.checked;
+        renderViewportSmart();
+      });
+      if (byId('toggleDashboardBtn')) byId('toggleDashboardBtn').addEventListener('click', toggleDashboardPanels);
+      if (byId('refreshBtn')) {
+        byId('refreshBtn').addEventListener('click', () => {
+          if (location.protocol === 'file:') {
+            window.location.reload();
+          } else {
+            fetchAndLoadBundledCsv(null);
+          }
+        });
+      }
+      if (byId('shareTvBtn')) byId('shareTvBtn').addEventListener('click', copyTvLink);
+      byId('tvControlsBtn').addEventListener('click', togglePresentationControls);
+      byId('exitTvBtn').addEventListener('click', () => setPresentationMode(false));
+      byId('exitTvHeaderBtn').addEventListener('click', () => setPresentationMode(false));
+      byId('fullscreenBtn').addEventListener('click', toggleFullscreen);
+      document.addEventListener('fullscreenchange', () => {
+        byId('fullscreenBtn').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
+        setTimeout(() => map.invalidateSize({ animate: false }), 120);
+      });
+
+      if (byId('reloadSharedBtn')) {
+        byId('reloadSharedBtn').addEventListener('click', () => {
+          fetchAndLoadBundledCsv(null);
+        });
+      }
+
+      const dropCard = byId('dropCard');
+      ['dragenter', 'dragover'].forEach(ev => dropCard.addEventListener(ev, e => {
+        e.preventDefault(); dropCard.classList.add('dragover');
+      }));
+      ['dragleave', 'drop'].forEach(ev => dropCard.addEventListener(ev, e => {
+        e.preventDefault(); dropCard.classList.remove('dragover');
+      }));
+      dropCard.addEventListener('drop', e => {
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) processManualCsvFile(file);
+      });
+
+      document.querySelectorAll('[data-map-layer]').forEach(button => {
+        button.addEventListener('click', () => setBasemap(button.dataset.mapLayer));
+      });
+
+      byId('citySelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
+      byId('statusSelect').addEventListener('change', () => applyFilters(false));
+      byId('clearCircuitBtn').addEventListener('click', () => clearActiveCircuit(true));
+
+      // Search box typing, focus, keyboard navigation & selection
+      const searchInput = byId('searchInput');
+      const searchDropdown = byId('searchDropdown');
+
+      searchInput.addEventListener('input', () => {
+        const val = searchInput.value;
+        byId('clearSearch').style.display = val ? 'block' : 'none';
+        renderSearchDropdown(val);
+
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          clearActiveCircuit(false);
+          applyFilters(true);
+        }, 220);
+      });
+
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim()) {
+          renderSearchDropdown(searchInput.value);
+        }
+      });
+
+      searchInput.addEventListener('keydown', e => {
+        const items = searchDropdown.querySelectorAll('.dropdown-item');
+        if (!searchDropdown.classList.contains('show') || items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeDropdownIdx = (activeDropdownIdx + 1) % items.length;
+          items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
+          items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeDropdownIdx = (activeDropdownIdx - 1 + items.length) % items.length;
+          items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
+          items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeDropdownIdx >= 0) {
+          e.preventDefault();
+          selectDropdownOption(items[activeDropdownIdx]);
+        } else if (e.key === 'Escape') {
+          searchDropdown.classList.remove('show');
+        }
+      });
+
+      searchDropdown.addEventListener('click', e => {
+        const btn = e.target.closest('.dropdown-item');
+        if (btn) selectDropdownOption(btn);
+      });
+
+      document.addEventListener('click', e => {
+        if (!byId('searchBoxContainer').contains(e.target)) {
+          searchDropdown.classList.remove('show');
+        }
+      });
+
+      byId('clearSearch').addEventListener('click', () => {
+        searchInput.value = '';
+        byId('clearSearch').style.display = 'none';
+        searchDropdown.classList.remove('show');
+        clearActiveCircuit(false);
+        applyFilters(true);
+        searchInput.focus();
+      });
+
+      byId('cityChips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-city]');
+        if (!btn) return;
+        byId('citySelect').value = btn.dataset.city;
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      byId('roadList').addEventListener('click', e => {
+        const btn = e.target.closest('[data-road]');
+        if (!btn) return;
+        searchInput.value = btn.dataset.road;
+        byId('clearSearch').style.display = 'block';
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      const laneSearchInput = byId('laneSearchInput');
+      const clearLaneSearch = byId('clearLaneSearch');
+      if (laneSearchInput) {
+        laneSearchInput.addEventListener('input', () => {
+          const q = laneSearchInput.value.trim();
+          if (clearLaneSearch) clearLaneSearch.style.display = q ? 'block' : 'none';
+          renderRoadList(q);
+        });
+      }
+      if (clearLaneSearch) {
+        clearLaneSearch.addEventListener('click', () => {
+          if (laneSearchInput) {
+            laneSearchInput.value = '';
+            laneSearchInput.focus();
+          }
+          clearLaneSearch.style.display = 'none';
+          renderRoadList('');
+        });
+      }
+
+      document.querySelector('.map-wrap').addEventListener('click', e => {
+        const btn = e.target.closest('[data-panel-key]');
+        if (btn && btn.dataset.panelKey) {
+          activatePanelCircuit(btn.dataset.panelKey, true);
+        }
+      });
+    }
+
+    // =========================================================================
+    // 5. MANUAL CSV UPLOAD HANDLER
+    // =========================================================================
+    async function processManualCsvFile(file) {
+      if (!file || !/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
+        showManualUploadPrompt('Choose a CSV file to update the map.');
+        return;
+      }
+      byId('uploadOverlay').classList.remove('hidden');
+      byId('overlayTitle').textContent = 'Processing CSV…';
+      byId('overlayDesc').textContent = 'Reading coordinates in a background worker. The map stays responsive.';
+      byId('manualSelectBtn').style.display = 'none';
+      byId('progressBar').style.display = 'block';
+      byId('progressFill').style.width = '4%';
+      byId('uploadStatusText').textContent = `Preparing "${file.name}"…`;
+
+      try {
+        const parsed = await parseCsvSource(file);
+        if (parsed.records.length === 0) {
+          showManualUploadPrompt('No valid coordinates found. Check for a Lat, Long or Latitude/Longitude column.');
+          return;
+        }
+
+        allRecords = parsed.records;
+        const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        await saveDatasetToCache({ fileName: file.name, savedAt: nowStr, isCustomUpload: true, records: allRecords });
+
+        byId('uploadOverlay').classList.add('hidden');
+        if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
+        updateCacheIndicator(file.name, allRecords.length, nowStr);
+        clearActiveCircuit(false);
+        buildSearchCatalog();
+        buildCityControls();
+        applySharedFiltersFromUrl();
+        applyFilters(true);
+        showToast(`✅ Loaded ${allRecords.length.toLocaleString()} points from ${file.name}`);
+      } catch (error) {
+        console.error(error);
+        showManualUploadPrompt(`Could not read this CSV (${error.message || 'parse error'}). Try saving it as UTF-8 CSV.`);
+      }
+    }
+
+    function parseCsvSource(source, useWorker = true) {
+      return new Promise((resolve, reject) => {
+        const records = [];
+        let parsedRows = 0;
+        let parseErrorCount = 0;
+        const totalBytes = source && Number(source.size) ? source.size : 0;
+        Papa.parse(source, {
+          header: true,
+          skipEmptyLines: true,
+          worker: useWorker,
+          chunkSize: 1024 * 1024,
+          chunk: results => {
+            const rows = results.data || [];
+            parsedRows += rows.length;
+            parseErrorCount += (results.errors || []).length;
+            const valid = normalizeCsvRows(rows);
+            for (let i = 0; i < valid.length; i++) records.push(valid[i]);
+            const progress = totalBytes ? Math.min(90, 5 + (results.meta?.cursor || 0) / totalBytes * 85) : Math.min(90, 5 + parsedRows / 50000 * 85);
+            const fill = byId('progressFill');
+            const status = byId('uploadStatusText');
+            if (fill) fill.style.width = `${progress}%`;
+            if (status) status.textContent = `Parsed ${parsedRows.toLocaleString()} rows · ${records.length.toLocaleString()} valid map points`;
+          },
+          complete: () => resolve({ records, parsedRows, parseErrorCount }),
+          error: reject
+        });
+      });
+    }
+
+    function normalizeCsvRows(rows) {
+      if (!rows.length) return [];
+      const sampleKeys = Object.keys(rows[0]);
+      const findCol = candidates => {
+        for (const key of sampleKeys) {
+          const norm = key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+          if (candidates.includes(norm)) return key;
+        }
+        return null;
+      };
+      const normalizeHeader = key => key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+\d+$/, '');
+      const duplicatePanelHeaders = sampleKeys.filter(key => normalizeHeader(key) === 'panel no location');
+      const looksLikeTimestamp = value => /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}(?:\s|$)/.test(String(value || '').trim())
+        || /^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(String(value || '').trim());
+      const duplicateTimestampHeader = duplicatePanelHeaders.find(key =>
+        rows.slice(0, 8).some(row => looksLikeTimestamp(row[key]))
+      );
+      const colPanel = duplicatePanelHeaders.find(key =>
+        rows.slice(0, 8).some(row => String(row[key] || '').trim() && !looksLikeTimestamp(row[key]))
+      ) || findCol(['panel no location', 'panel no', 'panel number', 'panel location', 'panel']);
+
+      const colCity = findCol(['city', 'town', 'municipality']);
+      const colLane = findCol(['name of bye lane road', 'bye lane road', 'road name', 'lane', 'road']);
+      const colItem = findCol(['item light fitting panel', 'item', 'asset type', 'type']);
+      const colStatus = findCol(['light status', 'status']);
+      const colPole = findCol(['type of pole', 'pole type', 'pole']);
+      const colDate = findCol(['date', 'survey date', 'survey timestamp', 'timestamp']) || duplicateTimestampHeader;
+      const colTime = findCol(['time']);
+      const colSurveyor = findCol(['name of surveyor', 'surveyor']);
+      const colContractor = findCol(['contactor name', 'contractor name', 'contractor']);
+      const colPhoto = findCol(['photo link', 'photo url', 'image link']);
+      const colPhotoLoc = findCol(['photo location in drive', 'photo location']);
+      const colLatLong = findCol(['lat long', 'latitude longitude', 'coordinates']);
+      const colLat = findCol(['latitude', 'lat']);
+      const colLng = findCol(['longitude', 'long', 'lng']);
+
+      const clean = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        let lat = NaN, lng = NaN;
+
+        if (colLatLong && r[colLatLong]) {
+          const m = String(r[colLatLong]).match(/(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)/);
+          if (m) { lat = Number(m[1]); lng = Number(m[2]); }
+        } else if (colLat && colLng) {
+          lat = Number(r[colLat]);
+          lng = Number(r[colLng]);
+        }
+
+        if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+
+        let city = colCity ? String(r[colCity] || '').trim() : '';
+        if (!city && colPhotoLoc && r[colPhotoLoc]) {
+          const folder = String(r[colPhotoLoc]).split(/[\\/]/)[0].trim();
+          const m = folder.match(/^(.+?)\s+Light_Images?$/i);
+          if (m && m[1] && !/^\d*\s*city$/i.test(m[1])) city = m[1].trim();
+        }
+        if (!city) city = 'Unassigned city';
+
+        const rawItem = colItem ? String(r[colItem] || '').trim() : 'Light';
+        const lowerItem = rawItem.toLowerCase();
+        let kind = 'light';
+        if (lowerItem.includes('panel')) kind = 'panel';
+        else if (lowerItem.includes('double')) kind = 'double-decorative';
+        else if (lowerItem.includes('single')) kind = 'single-decorative';
+        else if (lowerItem.includes('pole')) kind = 'pole';
+
+        const rawStatus = colStatus ? String(r[colStatus] || '').trim() : 'Unknown';
+        const stLower = rawStatus.toLowerCase().replace(/[-_]+/g, ' ');
+        const stState = (stLower.includes('not working') || stLower.includes('fault') || stLower.includes('inactive'))
+          ? 'faulty' : (stLower === 'working' || stLower === 'operational' || stLower === 'ok') ? 'working' : 'unknown';
+
+        const panel = colPanel ? String(r[colPanel] || '').trim() : '';
+        const lane = colLane ? String(r[colLane] || '').trim() : 'Lane not specified';
+        const panelKey = panel ? `${city}|${panel}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+        const photoUrl = colPhoto ? String(r[colPhoto] || '').trim() : '';
+
+        clean.push({
+          lat, lng, city, lane,
+          sourceIndex: i,
+          panel: panel || 'Panel not specified',
+          panelKey,
+          item: rawItem || 'Light',
+          kind,
+          status: rawStatus || 'Unknown',
+          stState,
+          pole: colPole ? String(r[colPole] || '').trim() : '',
+          date: colDate ? String(r[colDate] || '').trim() : '',
+          time: colTime ? String(r[colTime] || '').trim() : '',
+          surveyor: colSurveyor ? String(r[colSurveyor] || '').trim() : '',
+          contractor: colContractor ? String(r[colContractor] || '').trim() : '',
+          photoUrl: /^https?:\/\//i.test(photoUrl) ? photoUrl : '',
+          searchStr: `${city} ${lane} ${panel} ${rawItem}`.toLowerCase()
+        });
+      }
+      return clean;
+    }
+
+    function applyInitialViewSettings() {
+      const params = new URLSearchParams(window.location.search);
+      // Ignore the old panels=0 default from earlier shared links; new links
+      // use panelView explicitly when a viewer intentionally hides panels.
+      showPanelMarkers = params.has('panelView') ? params.get('panelView') === '1' : true;
+      byId('showPanelMarkers').checked = showPanelMarkers;
+      updateBasemapButtons();
+      if (params.get('tv') === '1') document.body.classList.add('presentation-mode');
+      if (params.get('dashboard') === 'visible') {
+        document.body.classList.remove('dashboard-hidden');
+      } else {
+        document.body.classList.add('dashboard-hidden');
+      }
+      if (byId('toggleDashboardBtn')) {
+        const isHidden = document.body.classList.contains('dashboard-hidden');
+        byId('toggleDashboardBtn').textContent = isHidden ? 'Filters' : 'Hide Filters';
+        byId('toggleDashboardBtn').setAttribute('aria-expanded', String(!isHidden));
+      }
+    }
+
+    function applySharedFiltersFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const city = params.get('city');
+      if (city && Array.from(byId('citySelect').options).some(option => option.value === city)) byId('citySelect').value = city;
+      const status = params.get('status');
+      if (status && ['all', 'working', 'faulty', 'unknown'].includes(status)) byId('statusSelect').value = status;
+      const query = params.get('q');
+      if (query) { byId('searchInput').value = query; byId('clearSearch').style.display = 'block'; }
+    }
+
+    function toggleDashboardPanels() {
+      const hidden = document.body.classList.toggle('dashboard-hidden');
+      if (byId('toggleDashboardBtn')) {
+        byId('toggleDashboardBtn').textContent = hidden ? 'Filters' : 'Hide Filters';
+        byId('toggleDashboardBtn').setAttribute('aria-expanded', String(!hidden));
+      }
+      setTimeout(() => map.invalidateSize({ animate: false }), 100);
+    }
+
+    function togglePresentationControls() {
+      const open = document.body.classList.toggle('presentation-controls-open');
+      byId('tvControlsBtn').textContent = open ? 'Hide panels' : 'Show panels';
+      setTimeout(() => map.invalidateSize({ animate: false }), 120);
+    }
+
+    async function toggleFullscreen() {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch (_) {
+        showToast('Use the TV browser’s full-screen option for presentation.');
+      }
+    }
+
+    function setPresentationMode(enabled) {
+      document.body.classList.toggle('presentation-mode', enabled);
+      document.body.classList.remove('presentation-controls-open');
+      const url = new URL(window.location.href);
+      if (enabled) url.searchParams.set('tv', '1');
+      else url.searchParams.delete('tv');
+      window.history.replaceState({}, '', url);
+      setTimeout(() => map.invalidateSize({ animate: false }), 120);
+    }
+
+    function tvShareUrl() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tv', '1');
+      url.searchParams.set('panelView', showPanelMarkers ? '1' : '0');
+      url.searchParams.delete('panels');
+      url.searchParams.set('details', '1');
+      url.searchParams.set('layer', currentBaseKey);
+      const city = byId('citySelect').value;
+      const status = byId('statusSelect').value;
+      const query = byId('searchInput').value.trim();
+      if (city) url.searchParams.set('city', city); else url.searchParams.delete('city');
+      if (status !== 'all') url.searchParams.set('status', status); else url.searchParams.delete('status');
+      if (query) url.searchParams.set('q', query); else url.searchParams.delete('q');
+      url.searchParams.delete('dashboard');
+      return url.toString();
+    }
+
+    function updateBasemapButtons() {
+      document.querySelectorAll('[data-map-layer]').forEach(button => {
+        const selected = button.dataset.mapLayer === currentBaseKey;
+        button.setAttribute('aria-pressed', String(selected));
+        button.classList.toggle('active', selected);
+      });
+    }
+
+    function setBasemap(nextKey) {
+      if (!baseLayers || !baseLayers[nextKey] || nextKey === currentBaseKey) return;
+      if (baseLayers[currentBaseKey] && map.hasLayer(baseLayers[currentBaseKey])) {
+        map.removeLayer(baseLayers[currentBaseKey]);
+      }
+      baseLayers[nextKey].addTo(map);
+      currentBaseKey = nextKey;
+      updateBasemapButtons();
+      const url = new URL(window.location.href);
+      url.searchParams.set('layer', currentBaseKey);
+      window.history.replaceState({}, '', url);
+    }
+
+    async function copyTvLink() {
+      if (location.protocol === 'file:') {
+        showToast('Host index.html and data.csv first; then copy the TV link.');
+        return;
+      }
+      const link = tvShareUrl();
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch (_) {
+        const input = document.createElement('textarea');
+        input.value = link; input.setAttribute('readonly', '');
+        input.style.position = 'fixed'; input.style.opacity = '0';
+        document.body.appendChild(input); input.select();
+        document.execCommand('copy'); input.remove();
+      }
+      showToast('TV presentation link copied. Host data.csv with the app to share updates.');
+    }
+
+    function updateCacheIndicator(fileName, count, savedAt) {
+      if (byId('cacheDot')) byId('cacheDot').classList.add('ready');
+      if (byId('cacheText')) byId('cacheText').textContent = `${count.toLocaleString()} assets`;
+      if (byId('fileMetaLabel')) byId('fileMetaLabel').textContent = `${fileName} · Updated ${savedAt}`;
+      if (byId('tvAssetCount')) byId('tvAssetCount').textContent = `${count.toLocaleString()} mapped assets · ${savedAt}`;
+    }
+
+    // =========================================================================
+    // 6. FILTERING & ZERO-HANG VIEWPORT RENDERING
+    // =========================================================================
+    function buildCityControls() {
+      const counts = new Map();
+      allRecords.forEach(r => counts.set(r.city, (counts.get(r.city) || 0) + 1));
+      const cities = Array.from(counts.keys()).sort((a, b) => {
+        if (a === 'Unassigned city') return 1;
+        if (b === 'Unassigned city') return -1;
+        return a.localeCompare(b);
+      });
+
+      byId('citySelect').innerHTML = `<option value="">All cities (${allRecords.length.toLocaleString()})</option>` +
+        cities.map(c => `<option value="${esc(c)}">${esc(c)} (${counts.get(c).toLocaleString()})</option>`).join('');
+
+      const chips = cities.filter(c => c !== 'Unassigned city');
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="">All cities</button>` +
+        chips.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}">${esc(c)}</button>`).join('');
+    }
+
+    function applyFilters(zoomToFit) {
+      const city = byId('citySelect').value;
+      const query = byId('searchInput').value.toLowerCase().trim();
+      const status = byId('statusSelect').value;
+
+      byId('cityChips').querySelectorAll('[data-city]').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.city === city);
+      });
+
+      filteredList = allRecords.filter(r => {
+        if (city && r.city !== city) return false;
+        if (status !== 'all' && r.stState !== status) return false;
+        if (query && !r.searchStr.includes(query)) return false;
+        return true;
+      });
+
+      updateStatsAndRoads(filteredList);
+
+      if (zoomToFit && filteredList.length > 0 && !activePanelKey) {
+        let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+        for (let i = 0; i < filteredList.length; i++) {
+          const p = filteredList[i];
+          if (p.lat < minLat) minLat = p.lat;
+          if (p.lat > maxLat) maxLat = p.lat;
+          if (p.lng < minLng) minLng = p.lng;
+          if (p.lng > maxLng) maxLng = p.lng;
+        }
+        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [35, 35], maxZoom: 17, animate: false });
+      }
+
+      renderViewportSmart();
+    }
+
+    function renderViewportSmart() {
+      if (!bulkCanvasLayer) return;
+      bulkCanvasLayer.redraw();
+      circuitLayer.clearLayers();
+      if (activePanelKey) {
+        const activeCircuitRecords = [];
+        for (let i = 0; i < filteredList.length; i++) {
+          const r = filteredList[i];
+          if (r.panelKey === activePanelKey) activeCircuitRecords.push(r);
+        }
+        if (activeCircuitRecords.length > 1) drawByeLaneCircuit(activeCircuitRecords);
+      }
+    }
+
+    // Kept as a compatibility entry point for existing controls; all point modes use one canvas.
+    function renderClusteredMode() { renderViewportSmart(); }
+
+    function createBulkCanvasLayer() {
+      return new (L.Layer.extend({
+        onAdd(mapInstance) {
+          this._map = mapInstance;
+          this._canvas = L.DomUtil.create('canvas', 'asset-canvas-layer');
+          this._canvas.setAttribute('aria-label', 'Map of street-light assets. Click a point for details.');
+          this._canvas.tabIndex = 0;
+          this._canvas.style.position = 'absolute';
+          this._canvas.style.pointerEvents = 'auto';
+          this._canvas.style.zIndex = '450';
+          this._ctx = this._canvas.getContext('2d', { alpha: true });
+          mapInstance.getPanes().overlayPane.appendChild(this._canvas);
+          mapInstance.on('moveend zoomend resize', this._reset, this);
+          this._clickHandler = event => this._handleClick(event);
+          this._moveHandler = event => this._handleMove(event);
+          this._canvas.addEventListener('click', this._clickHandler);
+          this._canvas.addEventListener('mousemove', this._moveHandler);
+          this._canvas.addEventListener('mouseleave', () => { this._canvas.style.cursor = ''; });
+          this._reset();
+        },
+        onRemove(mapInstance) {
+          mapInstance.off('moveend zoomend resize', this._reset, this);
+          if (this._canvas) this._canvas.remove();
+          this._canvas = null;
+          this._map = null;
+        },
+        redraw() {
+          if (!this._map) return;
+          if (this._frame) cancelAnimationFrame(this._frame);
+          this._frame = requestAnimationFrame(() => { this._frame = 0; this._reset(); });
+        },
+        _reset() {
+          if (!this._map || !this._canvas) return;
+          const size = this._map.getSize();
+          const ratio = Math.min(window.devicePixelRatio || 1, 2);
+          this._canvas.style.width = `${size.x}px`;
+          this._canvas.style.height = `${size.y}px`;
+          this._canvas.width = Math.max(1, Math.round(size.x * ratio));
+          this._canvas.height = Math.max(1, Math.round(size.y * ratio));
+          L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0, 0]));
+          this._ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          this._drawPoints(size);
+        },
+        _drawPoints(size) {
+          const ctx = this._ctx;
+          ctx.clearRect(0, 0, size.x, size.y);
+          this._hitGrid = new Map();
+          if (!filteredList.length) return;
+          const map = this._map;
+          const bounds = map.getBounds().pad(0.06);
+          const zoom = map.getZoom();
+          const radius = zoom < 11 ? 3.2 : zoom < 14 ? 4 : zoom < 17 ? 5 : 6;
+          const gridSize = 28;
+          const drawRecord = (r, isPanel) => {
+            if (isPanel && !showPanelMarkers) return;
+            if (!bounds.contains([r.lat, r.lng])) return;
+            const pt = map.latLngToContainerPoint([r.lat, r.lng]);
+            if (pt.x < -10 || pt.y < -10 || pt.x > size.x + 10 || pt.y > size.y + 10) return;
+            const active = !!activePanelKey && r.panelKey === activePanelKey;
+            const opacity = activePanelKey && !active ? 0.18 : 0.96;
+            const bulbKind = ['light', 'single-decorative', 'double-decorative'].includes(r.kind);
+            const detailedBulb = bulbKind && zoom >= 13;
+            const pointRadius = isPanel ? 7 : detailedBulb ? 8 : radius;
+            ctx.globalAlpha = opacity;
+            if (isPanel) {
+              if (active) {
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pointRadius + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 3; ctx.stroke();
+              }
+              const x = pt.x - 6.5, y = pt.y - 6.5;
+              ctx.beginPath(); ctx.rect(x, y, 13, 13);
+              ctx.fillStyle = '#16834a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.fill(); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(pt.x + 1, pt.y - 4); ctx.lineTo(pt.x - 2.5, pt.y + 0.2); ctx.lineTo(pt.x, pt.y + 0.2); ctx.lineTo(pt.x - 1, pt.y + 4); ctx.lineTo(pt.x + 3, pt.y - 1); ctx.lineTo(pt.x + 0.5, pt.y - 1); ctx.closePath();
+              ctx.fillStyle = '#ffe35b'; ctx.fill();
+            } else {
+              const color = r.kind === 'double-decorative' ? '#7c3aed'
+                : r.kind === 'single-decorative' ? '#0d9488'
+                : r.kind === 'pole' ? '#334155'
+                : r.stState === 'faulty' ? '#dc2626' : '#f2a900';
+              const glowColor = r.stState === 'faulty' ? 'rgba(220,38,38,.24)'
+                : r.kind === 'double-decorative' ? 'rgba(124,58,237,.35)'
+                : r.kind === 'single-decorative' ? 'rgba(13,148,136,.35)'
+                : 'rgba(250,204,21,.55)';
+              if (active) {
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pointRadius + 3, 0, Math.PI * 2);
+                ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.stroke();
+              }
+              if (bulbKind) {
+                // A luminous multi-ring radiant glow for working lights
+                if (r.stState !== 'faulty') {
+                  const glowR = detailedBulb ? 13 : pointRadius + 5;
+                  const grad = ctx.createRadialGradient(pt.x, pt.y, 1.5, pt.x, pt.y, glowR);
+                  grad.addColorStop(0, 'rgba(255, 238, 130, 0.85)');
+                  grad.addColorStop(0.4, 'rgba(250, 204, 21, 0.45)');
+                  grad.addColorStop(0.8, 'rgba(246, 168, 0, 0.18)');
+                  grad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+                  ctx.beginPath();
+                  ctx.arc(pt.x, pt.y, glowR, 0, Math.PI * 2);
+                  ctx.fillStyle = grad;
+                  ctx.fill();
+                } else {
+                  ctx.beginPath();
+                  ctx.arc(pt.x, pt.y, detailedBulb ? 9 : pointRadius + 2, 0, Math.PI * 2);
+                  ctx.fillStyle = glowColor;
+                  ctx.fill();
+                }
+              }
+              if (detailedBulb) {
+                // Clean round bulb badge matching the supplied map marker:
+                // colored glass, a bright inner bulb, and a compact dark base.
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y - 1, 7, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.8;
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(pt.x - 2.4, pt.y - 1.2);
+                ctx.bezierCurveTo(pt.x - 4.2, pt.y - 4.2, pt.x - 2.2, pt.y - 6.3, pt.x, pt.y - 6.3);
+                ctx.bezierCurveTo(pt.x + 2.6, pt.y - 6.3, pt.x + 4.2, pt.y - 4, pt.x + 2.4, pt.y - 1.2);
+                ctx.quadraticCurveTo(pt.x + 1.3, pt.y + 0.2, pt.x + 1.3, pt.y + 1.2);
+                ctx.lineTo(pt.x - 1.3, pt.y + 1.2);
+                ctx.quadraticCurveTo(pt.x - 1.3, pt.y + 0.2, pt.x - 2.4, pt.y - 1.2);
+                ctx.closePath();
+                ctx.fillStyle = r.stState === 'faulty' ? '#fee2e2' : '#fffbe6';
+                ctx.strokeStyle = 'rgba(120,53,15,.65)';
+                ctx.lineWidth = 0.8;
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(pt.x - 1.2, pt.y + 2);
+                ctx.lineTo(pt.x + 1.2, pt.y + 2);
+                ctx.moveTo(pt.x - 1, pt.y + 3);
+                ctx.lineTo(pt.x + 1, pt.y + 3);
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.15;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                if (r.stState === 'faulty') {
+                  ctx.beginPath();
+                  ctx.moveTo(pt.x - 1.7, pt.y - 4); ctx.lineTo(pt.x + 1.7, pt.y - 1);
+                  ctx.moveTo(pt.x + 1.7, pt.y - 4); ctx.lineTo(pt.x - 1.7, pt.y - 1);
+                  ctx.strokeStyle = '#dc2626';
+                  ctx.lineWidth = 1.1;
+                  ctx.stroke();
+                }
+              } else {
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pointRadius, 0, Math.PI * 2);
+                ctx.fillStyle = color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.1; ctx.fill(); ctx.stroke();
+                if (r.stState === 'faulty') {
+                  ctx.beginPath(); ctx.moveTo(pt.x - 2, pt.y - 2); ctx.lineTo(pt.x + 2, pt.y + 2); ctx.moveTo(pt.x + 2, pt.y - 2); ctx.lineTo(pt.x - 2, pt.y + 2);
+                  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+                }
+              }
+            }
+            ctx.globalAlpha = 1;
+            const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
+            let bucket = this._hitGrid.get(key);
+            if (!bucket) this._hitGrid.set(key, bucket = []);
+          bucket.push({ x: pt.x, y: pt.y, r: Math.max(pointRadius + 2, 8), record: r });
+          };
+          // Draw ordinary assets first so the panel symbols remain visible at coincident coordinates.
+          for (let i = 0; i < filteredList.length; i++) if (filteredList[i].kind !== 'panel') drawRecord(filteredList[i], false);
+          for (let i = 0; i < filteredList.length; i++) if (filteredList[i].kind === 'panel') drawRecord(filteredList[i], true);
+          ctx.globalAlpha = 1;
+        },
+        _findPoint(x, y) {
+          if (!this._hitGrid) return null;
+          const cell = 28;
+          const gx = Math.floor(x / cell), gy = Math.floor(y / cell);
+          let best = null, bestD = Infinity;
+          for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+            const bucket = this._hitGrid.get(`${gx + dx}:${gy + dy}`) || [];
+            for (let i = 0; i < bucket.length; i++) {
+              const p = bucket[i], d = (p.x - x) ** 2 + (p.y - y) ** 2;
+              if (d <= p.r * p.r && d <= bestD) { best = p.record; bestD = d; }
+            }
+          }
+          return best;
+        },
+        _handleMove(event) {
+          const rect = this._canvas.getBoundingClientRect();
+          this._canvas.style.cursor = this._findPoint(event.clientX - rect.left, event.clientY - rect.top) ? 'pointer' : '';
+        },
+        _handleClick(event) {
+          const rect = this._canvas.getBoundingClientRect();
+          const record = this._findPoint(event.clientX - rect.left, event.clientY - rect.top);
+          if (!record) return;
+          L.DomEvent.stopPropagation(event);
+          if (record.kind === 'panel' && record.panelKey) activatePanelCircuit(record.panelKey, true);
+          else L.popup({ maxWidth: 320 }).setLatLng([record.lat, record.lng]).setContent(buildPopupHtml(record)).openOn(this._map);
+        }
+      }))();
+    }
+
+    function createInteractiveMarker(r, stateClass) {
+      const icon = getPooledIcon(r.kind, r.stState === 'faulty', stateClass);
+      const marker = L.marker([r.lat, r.lng], {
+        icon,
+        zIndexOffset: stateClass === 'panel-active' ? 1000 : stateClass === 'light-connected' ? 800 : 0
+      });
+
+      marker.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        if (r.kind === 'panel' && r.panelKey) {
+          activatePanelCircuit(r.panelKey, true);
+        } else {
+          marker.bindPopup(buildPopupHtml(r)).openPopup();
+        }
+      });
+
+      return marker;
+    }
+
+    // =========================================================================
+    // 7. INTERACTIVE PANEL CIRCUIT & BYE-LANE ROUTING
+    // =========================================================================
+    function activatePanelCircuit(panelKey, openPopupOnPanel = false) {
+      activePanelKey = panelKey;
+      const circuitItems = filteredList.filter(r => r.panelKey === panelKey);
+
+      if (circuitItems.length > 0) {
+        const bounds = L.latLngBounds(circuitItems.map(r => [r.lat, r.lng]));
+        map.fitBounds(bounds.pad(0.18), { maxZoom: 19, animate: true });
+      }
+
+      renderViewportSmart();
+
+      const panelRec = circuitItems.find(r => r.kind === 'panel') || circuitItems[0];
+      const lightCount = circuitItems.filter(r => r.kind !== 'panel').length;
+      const lanes = new Set(circuitItems.map(r => r.lane).filter(Boolean));
+
+      byId('circuitBanner').classList.add('active');
+      byId('circuitBannerTitle').textContent = panelRec ? panelRec.panel : 'Selected Panel';
+      byId('circuitBannerSub').textContent = `${lightCount} connected light(s) across ${lanes.size} bye-lane(s)`;
+      showToast(`⚡ ${panelRec ? panelRec.panel : 'Panel'}: ${lightCount} lights connected along ${lanes.size} bye-lane(s)`);
+
+      if (openPopupOnPanel && panelRec) {
+        setTimeout(() => {
+          L.popup({ offset: [0, -14] })
+            .setLatLng([panelRec.lat, panelRec.lng])
+            .setContent(buildPopupHtml(panelRec))
+            .openOn(map);
+        }, 160);
+      }
+    }
+
+    function clearActiveCircuit(shouldRefresh = true) {
+      activePanelKey = '';
+      byId('circuitBanner').classList.remove('active');
+      byId('mapToast').classList.add('hidden');
+      if (circuitLayer) circuitLayer.clearLayers();
+      map.closePopup();
+      if (shouldRefresh) renderViewportSmart();
+    }
+
+    function drawByeLaneCircuit(group) {
+      circuitLayer.clearLayers();
+      if (group.length < 2) return;
+      const panelRec = group.find(r => r.kind === 'panel') || group[0];
+      const panelPoint = [panelRec.lat, panelRec.lng];
+
+      // Deduplicate coordinates for geometric line routing
+      const uniquePoints = [panelPoint];
+      const coordKey = pt => `${pt[0].toFixed(6)},${pt[1].toFixed(6)}`;
+      const seenCoords = new Set([coordKey(panelPoint)]);
+
+      for (let i = 0; i < group.length; i++) {
+        const pt = [group[i].lat, group[i].lng];
+        const key = coordKey(pt);
+        if (!seenCoords.has(key)) {
+          seenCoords.add(key);
+          uniquePoints.push(pt);
+        }
+      }
+
+      if (uniquePoints.length < 2) return;
+
+      const distanceSquared = (a, b) => {
+        const meanLat = (a[0] + b[0]) * 0.5 * Math.PI / 180;
+        return (a[0] - b[0]) ** 2 + ((a[1] - b[1]) * Math.cos(meanLat)) ** 2;
+      };
+
+      const drawRoute = path => {
+        if (path.length < 2) return;
+        L.polyline(path, {
+          color: '#087f46', weight: 6, opacity: 0.78,
+          lineJoin: 'round', lineCap: 'round', interactive: false, renderer: circuitRenderer
+        }).addTo(circuitLayer);
+        L.polyline(path, {
+          color: '#ffd54a', weight: 2.4, opacity: 1,
+          dashArray: '8, 7', className: 'circuit-flow-line',
+          lineJoin: 'round', lineCap: 'round', interactive: false, renderer: circuitRenderer
+        }).addTo(circuitLayer);
+        L.polyline(path, {
+          color: '#fff8cc', weight: 1.4, opacity: 0.95,
+          dashArray: '2, 20', className: 'circuit-electric-pulse',
+          lineJoin: 'round', lineCap: 'round', interactive: false, renderer: circuitRenderer
+        }).addTo(circuitLayer);
+      };
+
+      // Build Minimum Spanning Tree (MST) across connected points to ensure
+      // exactly ONE clean, direct single line connecting adjacent lights along
+      // roads without overlapping parallel or looping lines.
+      const n = uniquePoints.length;
+      const inTree = new Array(n).fill(false);
+      inTree[0] = true;
+      const adj = Array.from({ length: n }, () => []);
+
+      for (let step = 0; step < n - 1; step++) {
+        let minD = Infinity, bestU = -1, bestV = -1;
+        for (let u = 0; u < n; u++) {
+          if (!inTree[u]) continue;
+          for (let v = 0; v < n; v++) {
+            if (inTree[v]) continue;
+            const d = distanceSquared(uniquePoints[u], uniquePoints[v]);
+            if (d < minD) {
+              minD = d;
+              bestU = u;
+              bestV = v;
+            }
+          }
+        }
+        if (bestV === -1) break;
+        inTree[bestV] = true;
+        adj[bestU].push(bestV);
+        adj[bestV].push(bestU);
+      }
+
+      // Decompose tree into non-overlapping continuous line chains
+      const visitedEdges = new Set();
+      const edgeKey = (u, v) => (u < v ? `${u}:${v}` : `${v}:${u}`);
+      const junctions = [];
+      for (let i = 0; i < n; i++) {
+        if (adj[i].length !== 2) junctions.push(i);
+      }
+      if (!junctions.length) junctions.push(0);
+
+      const chains = [];
+      for (const start of junctions) {
+        for (const nbr of adj[start]) {
+          const key = edgeKey(start, nbr);
+          if (visitedEdges.has(key)) continue;
+          visitedEdges.add(key);
+
+          const chain = [uniquePoints[start], uniquePoints[nbr]];
+          let prev = start, curr = nbr;
+
+          while (adj[curr].length === 2) {
+            const nextNode = adj[curr][0] === prev ? adj[curr][1] : adj[curr][0];
+            const nextKey = edgeKey(curr, nextNode);
+            if (visitedEdges.has(nextKey)) break;
+            visitedEdges.add(nextKey);
+            chain.push(uniquePoints[nextNode]);
+            prev = curr;
+            curr = nextNode;
+          }
+          chains.push(chain);
+        }
+      }
+
+      for (let i = 0; i < chains.length; i++) {
+        drawRoute(chains[i]);
+      }
+    }
+
+    // =========================================================================
+    // 8. SIDEBAR STATS & POPUP BUILDERS
+    // =========================================================================
+    function updateStatsAndRoads(rows) {
+      let lights = 0, faults = 0;
+      const roadCounts = new Map();
+      const uniquePanels = new Set();
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (r.kind === 'panel') {
+          if (r.panel && r.panel !== 'Panel not specified') {
+            uniquePanels.add(r.panel.trim());
+          } else if (r.panelKey) {
+            uniquePanels.add(r.panelKey);
+          }
+        } else if (r.kind !== 'pole') {
+          lights++;
+          roadCounts.set(r.lane, (roadCounts.get(r.lane) || 0) + 1);
+        }
+        if (r.stState === 'faulty') faults++;
+      }
+
+      // If all records are loaded (or unconstrained), total panels is 360 as specified
+      const panelsCount = (rows.length === allRecords.length && allRecords.length > 0)
+        ? 360
+        : (uniquePanels.size === 359 ? 360 : uniquePanels.size);
+
+      if (byId('statAssets')) byId('statAssets').textContent = rows.length.toLocaleString();
+      byId('statLights').textContent = lights.toLocaleString();
+      if (byId('statPanels')) byId('statPanels').textContent = panelsCount.toLocaleString();
+      byId('statFaults').textContent = faults.toLocaleString();
+
+      if (byId('topStatLights')) byId('topStatLights').textContent = lights.toLocaleString();
+      if (byId('topStatPanels')) byId('topStatPanels').textContent = panelsCount.toLocaleString();
+
+      currentRoadEntries = Array.from(roadCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+      byId('roadCountLabel').textContent = `${roadCounts.size.toLocaleString()} lanes`;
+      const currentQuery = byId('laneSearchInput') ? byId('laneSearchInput').value.trim() : '';
+      renderRoadList(currentQuery);
+    }
+
+    function renderRoadList(filterQuery = '') {
+      const q = filterQuery.toLowerCase();
+      const filtered = q
+        ? currentRoadEntries.filter(([name]) => name.toLowerCase().includes(q))
+        : currentRoadEntries;
+
+      byId('roadList').innerHTML = filtered.length
+        ? filtered.map(([name, cnt]) =>
+            `<button class="road-button" type="button" data-road="${esc(name)}">
+              <span class="road-name">${esc(name)}</span>
+              <span class="road-count">${cnt.toLocaleString()}</span>
+            </button>`
+          ).join('')
+        : '<div style="padding:10px;color:#64748b;font-size:12px;text-align:center;">No matching roads or bye-lanes</div>';
+    }
+
+    function buildPopupHtml(r) {
+      const linkedCount = r.panelKey ? (lightCountsByPanel.get(r.panelKey) || 0) : 0;
+
+      const statusTag = `<span class="status-tag ${r.stState === 'faulty' ? 'bad' : r.stState === 'unknown' ? 'unknown' : ''}">${esc(r.status)}</span>`;
+
+      const fields = [
+        ['City', r.city],
+        ['Road / Lane', r.lane],
+        ['Panel', r.panel],
+        ['Asset Type', r.item],
+        ['Status', statusTag],
+        r.pole ? ['Pole Type', r.pole] : null,
+        r.date ? ['Survey Date', `${r.date} ${r.time}`.trim()] : null,
+        r.surveyor ? ['Surveyor', r.surveyor] : null,
+        r.contractor ? ['Contractor', r.contractor] : null,
+        linkedCount ? ['Circuit Load', `${linkedCount} light(s)`] : null
+      ].filter(Boolean);
+
+      const metaHtml = fields.map(([k, v]) =>
+        `<div class="popup-key">${esc(k)}</div><div class="popup-value">${k === 'Status' ? v : esc(v)}</div>`
+      ).join('');
+
+      const traceBtn = linkedCount > 0
+        ? `<button class="popup-btn primary" type="button" data-panel-key="${esc(r.panelKey)}">⚡ Trace panel circuit</button>`
+        : '';
+      const photoBtn = r.photoUrl
+        ? `<a class="popup-btn" href="${esc(r.photoUrl)}" target="_blank" rel="noopener">📷 Open photo</a>`
+        : '';
+
+      return `<div class="popup">
+        <p class="popup-title">${esc(r.kind === 'panel' ? 'Panel · ' + r.panel : r.item + ' · ' + r.lane)}</p>
+        <div class="popup-meta">${metaHtml}</div>
+        ${(traceBtn || photoBtn) ? `<div class="popup-actions">${traceBtn}${photoBtn}</div>` : ''}
+      </div>`;
+    }
+
+    function showToast(msg) {
+      const el = byId('mapToast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._t);
+      if (!activePanelKey) {
+        el._t = setTimeout(() => el.classList.add('hidden'), 4500);
+      }
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
