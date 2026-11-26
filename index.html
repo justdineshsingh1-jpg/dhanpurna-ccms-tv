@@ -190,10 +190,8 @@
       }
     }
     .glowing-light-icon {
-      animation: bulbGlowPulse 2.5s ease-in-out infinite;
       transform-origin: center;
-      will-change: transform, opacity;
-      filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.85));
+      display: block;
     }
     .legend-svg .glowing-light-icon {
       display: block;
@@ -304,13 +302,6 @@
               <strong class="top-stat-value" id="topStatPanels">360</strong>
             </div>
           </div>
-          <div class="top-stat" title="Total lights currently reported not working">
-            <span class="top-stat-icon">🔴</span>
-            <div class="top-stat-info">
-              <span class="top-stat-label">Not Working</span>
-              <strong class="top-stat-value red" id="topStatFaults">0</strong>
-            </div>
-          </div>
         </div>
 
         <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
@@ -328,7 +319,6 @@
       <aside class="sidebar">
         <div class="stats">
           <div class="stat"><span class="stat-label">Total Lights</span><strong class="stat-value" id="statLights">0</strong></div>
-          <div class="stat"><span class="stat-label">Not Working</span><strong class="stat-value red" id="statFaults">0</strong></div>
         </div>
 
         <div class="circuit-banner" id="circuitBanner">
@@ -350,7 +340,6 @@
           <select id="statusSelect">
             <option value="all">All statuses</option>
             <option value="working">Working</option>
-            <option value="faulty">Not working</option>
             <option value="unknown">Unknown</option>
           </select>
         </div>
@@ -438,7 +427,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v6';
+    const DB_KEY = 'bundled_or_custom_v7';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -491,23 +480,10 @@
         <polygon points="21,11 14,21 20,21 18,29 26,18 20,18" fill="#facc15"/>
       </svg>`,
       lightWorking: `<svg class="glowing-light-icon" width="26" height="26" viewBox="0 0 36 36">
-        <defs>
-          <filter id="bulbGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        <!-- Outer luminous aura -->
-        <circle cx="18" cy="17" r="16.5" fill="rgba(250, 204, 21, 0.35)" filter="url(#bulbGlow)"/>
-        <!-- Bulb body -->
-        <circle cx="18" cy="17" r="15" fill="#f6a800" stroke="#ffffff" stroke-width="2.5"/>
-        <path d="M18 7.5c-4 0-6.5 2.8-6.5 6.4 0 2.3 1.2 3.8 2.3 5.2.7.9 1 1.4 1 2.1h6.4c0-.7.3-1.2 1-2.1 1.1-1.4 2.3-2.9 2.3-5.2 0-3.6-2.5-6.4-6.5-6.4Z" fill="#fffbe6" stroke="#9a5b00" stroke-width=".9"/>
-        <path d="M15.5 23h5M16.2 25.3h3.6" stroke="#334155" stroke-width="1.8" stroke-linecap="round"/>
-        <circle cx="18" cy="13.5" r="1.4" fill="#ffffff"/>
+        <circle cx="18" cy="18" r="15" fill="#f59e0b" stroke="#ffffff" stroke-width="2.2"/>
+        <path d="M18 9c-3.8 0-6 2.5-6 5.8 0 2 1 3.5 2 4.8.6.8.9 1.3.9 1.9h6.2c0-.6.3-1.1.9-1.9 1-1.3 2-2.8 2-4.8 0-3.3-2.2-5.8-6-5.8Z" fill="#fffbe6" stroke="#9a5b00" stroke-width=".8"/>
+        <path d="M15.5 24h5M16.2 26.2h3.6" stroke="#334155" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="18" cy="14" r="1.5" fill="#ffffff"/>
       </svg>`,
       lightFaulty: `<svg width="26" height="26" viewBox="0 0 36 36">
         <circle cx="18" cy="17" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5"/>
@@ -601,20 +577,10 @@
           return c;
         };
 
-        // 1. Working Light with glowing aura (36x36, center 18, 18)
-        this.lightOn = makeSprite(36, 36, (ctx, cx, cy) => {
-          const grad = ctx.createRadialGradient(cx, cy - 1, 1, cx, cy - 1, 16);
-          grad.addColorStop(0, 'rgba(255, 240, 150, 0.95)');
-          grad.addColorStop(0.35, 'rgba(250, 204, 21, 0.55)');
-          grad.addColorStop(0.7, 'rgba(246, 168, 0, 0.2)');
-          grad.addColorStop(1, 'rgba(250, 204, 21, 0)');
+        // 1. Working Light (28x28, center 14, 14) - crisp vector bulb, NO wide blur
+        this.lightOn = makeSprite(28, 28, (ctx, cx, cy) => {
           ctx.beginPath();
-          ctx.arc(cx, cy - 1, 16, 0, Math.PI * 2);
-          ctx.fillStyle = grad;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy - 1.5, 7, 0, Math.PI * 2);
+          ctx.arc(cx, cy - 1, 8.5, 0, Math.PI * 2);
           ctx.fillStyle = '#f59e0b';
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 1.8;
@@ -622,65 +588,42 @@
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.arc(cx, cy - 2, 3.5, 0, Math.PI * 2);
+          ctx.arc(cx, cy - 1.5, 4.2, 0, Math.PI * 2);
           ctx.fillStyle = '#fffbe6';
           ctx.fill();
 
           ctx.beginPath();
-          ctx.moveTo(cx - 2, cy + 5.5);
-          ctx.lineTo(cx + 2, cy + 5.5);
+          ctx.moveTo(cx - 2.5, cy + 6.5);
+          ctx.lineTo(cx + 2.5, cy + 6.5);
           ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
-        });
-
-        // 2. Faulty Light (28x28, center 14, 14)
-        this.lightOff = makeSprite(28, 28, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy, 12, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(220, 38, 38, 0.25)';
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-          ctx.fillStyle = '#dc2626';
-          ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 1.8;
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(cx - 2.5, cy - 2.5); ctx.lineTo(cx + 2.5, cy + 2.5);
-          ctx.moveTo(cx + 2.5, cy - 2.5); ctx.lineTo(cx - 2.5, cy + 2.5);
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.6;
           ctx.stroke();
         });
 
-        // 3. CCMS Panel (34x34, center 17, 17)
-        this.panel = makeSprite(34, 34, (ctx, cx, cy) => {
-          ctx.beginPath();
-          ctx.arc(cx, cy, 15, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(22, 163, 74, 0.28)';
-          ctx.fill();
+        // 2. Faulty Light placeholder
+        this.lightOff = this.lightOn;
 
+        // 3. CCMS Panel (30x30, center 15, 15) - crisp rounded green box with yellow lightning bolt
+        this.panel = makeSprite(30, 30, (ctx, cx, cy) => {
+          const w = 22, h = 22, x = cx - 11, y = cy - 11;
           ctx.beginPath();
-          ctx.rect(cx - 7, cy - 7, 14, 14);
+          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 4.5);
+          else ctx.rect(x, y, w, h);
           ctx.fillStyle = '#16a34a';
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.8;
           ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.moveTo(cx + 1, cy - 4.5);
-          ctx.lineTo(cx - 3, cy + 0.2);
-          ctx.lineTo(cx, cy + 0.2);
-          ctx.lineTo(cx - 1, cy + 4.5);
-          ctx.lineTo(cx + 3.5, cy - 1);
-          ctx.lineTo(cx + 0.5, cy - 1);
+          ctx.moveTo(cx + 1, cy - 6);
+          ctx.lineTo(cx - 3.5, cy + 0.3);
+          ctx.lineTo(cx + 0.2, cy + 0.3);
+          ctx.lineTo(cx - 1, cy + 6);
+          ctx.lineTo(cx + 4.5, cy - 0.8);
+          ctx.lineTo(cx + 1, cy - 0.8);
           ctx.closePath();
-          ctx.fillStyle = '#fde047';
+          ctx.fillStyle = '#facc15';
           ctx.fill();
         });
 
@@ -743,13 +686,23 @@
           ctx.beginPath(); ctx.arc(cx, cy, 5.2, 0, Math.PI * 2);
           ctx.fillStyle = '#f59e0b'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
         });
-        this.dotFaulty = makeSprite(14, 14, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.arc(cx, cy, 4.8, 0, Math.PI * 2);
-          ctx.fillStyle = '#dc2626'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke();
-        });
-        this.dotPanel = makeSprite(16, 16, (ctx, cx, cy) => {
-          ctx.beginPath(); ctx.rect(cx - 5, cy - 5, 10, 10);
+        this.dotFaulty = this.dotLight;
+        this.dotPanel = makeSprite(22, 22, (ctx, cx, cy) => {
+          const w = 18, h = 18, x = cx - 9, y = cy - 9;
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 4);
+          else ctx.rect(x, y, w, h);
           ctx.fillStyle = '#16a34a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8; ctx.fill(); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx + 0.9, cy - 5);
+          ctx.lineTo(cx - 3, cy + 0.2);
+          ctx.lineTo(cx + 0.2, cy + 0.2);
+          ctx.lineTo(cx - 0.9, cy + 5);
+          ctx.lineTo(cx + 3.8, cy - 0.7);
+          ctx.lineTo(cx + 0.9, cy - 0.7);
+          ctx.closePath();
+          ctx.fillStyle = '#facc15';
+          ctx.fill();
         });
       }
     };
@@ -762,7 +715,6 @@
         { svg: SVG_ICONS.lightWorking, label: 'Light', key: 'light' },
         { svg: SVG_ICONS.singleDecorative, label: 'Single-Decorative', key: 'single-decorative' },
         { svg: SVG_ICONS.doubleDecorative, label: 'Double-Decorative', key: 'double-decorative' },
-        { svg: SVG_ICONS.lightFaulty, label: 'Not Working', key: 'faulty' },
         { svg: SVG_ICONS.pole, label: 'Pole', key: 'pole' }
       ];
       byId('customLegend').innerHTML = items.map(i => {
@@ -1216,7 +1168,6 @@
             'light': '💡 Showing street lights',
             'single-decorative': '● Showing Single-Decorative lights',
             'double-decorative': '● Showing Double-Decorative lights',
-            'faulty': '🔴 Showing all not working lights',
             'pole': 'Showing poles'
           };
           showToast(msgMap[key] || `Filtering by ${key}`);
@@ -1224,16 +1175,6 @@
         clearActiveCircuit(false);
         applyFilters(true);
       });
-
-      const topFaults = byId('topStatFaults');
-      if (topFaults) {
-        topFaults.closest('.top-stat').addEventListener('click', () => {
-          activeLegendFilter = activeLegendFilter === 'faulty' ? '' : 'faulty';
-          showToast(activeLegendFilter === 'faulty' ? '🔴 Showing all not working lights' : 'Showing all map assets');
-          clearActiveCircuit(false);
-          applyFilters(true);
-        });
-      }
 
       const topLights = byId('topStatLights');
       if (topLights) {
@@ -1497,9 +1438,8 @@
         else if (lowerItem.includes('pole')) kind = 'pole';
 
         const rawStatus = colStatus ? String(r[colStatus] || '').trim() : 'Unknown';
-        const stLower = rawStatus.toLowerCase().replace(/[-_]+/g, ' ');
-        const stState = (stLower.includes('not working') || stLower.includes('fault') || stLower.includes('inactive'))
-          ? 'faulty' : (stLower === 'working' || stLower === 'operational' || stLower === 'ok') ? 'working' : 'unknown';
+        // Treat all lights as active working lights (Not Working status temporarily removed as requested)
+        const stState = 'working';
 
         const panel = colPanel ? String(r[colPanel] || '').trim() : '';
         const lane = colLane ? String(r[colLane] || '').trim() : 'Lane not specified';
@@ -1686,9 +1626,7 @@
 
         // Interactive Legend Filtering
         if (activeLegendFilter) {
-          if (activeLegendFilter === 'faulty') {
-            if (r.stState !== 'faulty') return false;
-          } else if (activeLegendFilter === 'light') {
+          if (activeLegendFilter === 'light') {
             // "when click on Light all light will be displayed"
             if (r.kind === 'panel' || r.kind === 'pole') return false;
           } else if (activeLegendFilter === 'single-decorative') {
@@ -1779,8 +1717,8 @@
         _reset() {
           if (!this._map || !this._canvas) return;
           const size = this._map.getSize();
-          // Cap pixel ratio to 1.25 on 4K/TV screens to eliminate VRAM buffer lag
-          const ratio = Math.min(window.devicePixelRatio || 1, 1.25);
+          // Native DPR for ultra-sharp rendering on 4K 80-inch TV (eliminates blur)
+          const ratio = Math.min(Math.max(1, window.devicePixelRatio || 1), 2.5);
           this._canvas.style.width = `${size.x}px`;
           this._canvas.style.height = `${size.y}px`;
           this._canvas.width = Math.max(1, Math.round(size.x * ratio));
@@ -1807,18 +1745,18 @@
 
           // =========================================================================
           // FULL MAP VIEW (Low Zoom, zoom < 13):
-          // Renders 100% of all 39,666 points across Guwahati with ZERO skipped points
-          // using high-speed batched GPU paths (glow aura + core + panels). Takes <8ms, zero hang!
+          // Renders 100% of all 39,666 points across Guwahati with ZERO skipped points.
+          // Clean discrete points with ZERO yellow glow/halo; roads & map are 100% clear!
+          // Panels rendered as crisp green CCMS badges with bright yellow lightning bolt ⚡.
           // =========================================================================
           if (isLowZoom) {
             const workingLights = [];
-            const faultyLights = [];
             const decSingle = [];
             const decDouble = [];
+            const poles = [];
             const panels = [];
 
-            const dotR = zoom < 10 ? 2.4 : zoom < 12 ? 3.2 : 4.0;
-            const haloR = dotR + 2.2;
+            const dotR = zoom < 11 ? 1.6 : zoom < 12 ? 2.2 : 2.8;
 
             for (let i = 0; i < filteredList.length; i++) {
               const r = filteredList[i];
@@ -1834,12 +1772,12 @@
 
               if (isPanel) {
                 panels.push({ pt, active, r });
-              } else if (r.stState === 'faulty') {
-                faultyLights.push(pt);
               } else if (r.kind === 'single-decorative') {
                 decSingle.push(pt);
               } else if (r.kind === 'double-decorative') {
                 decDouble.push(pt);
+              } else if (r.kind === 'pole') {
+                poles.push(pt);
               } else {
                 workingLights.push(pt);
               }
@@ -1852,19 +1790,9 @@
 
             const opacity = activePanelKey ? 0.22 : 1.0;
 
-            // 1. Working lights outer golden halo
+            // 1. Working lights (discrete crisp amber beads; NO yellow halo/wash)
             if (workingLights.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.85;
-              ctx.beginPath();
-              for (let i = 0; i < workingLights.length; i++) {
-                const p = workingLights[i];
-                ctx.moveTo(p.x + haloR, p.y);
-                ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
-              }
-              ctx.fillStyle = 'rgba(250, 204, 21, 0.40)';
-              ctx.fill();
-
-              // Working lights core
+              ctx.globalAlpha = activePanelKey ? opacity : 0.92;
               ctx.beginPath();
               for (let i = 0; i < workingLights.length; i++) {
                 const p = workingLights[i];
@@ -1877,12 +1805,12 @@
 
             // 2. Single decorative (teal)
             if (decSingle.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.9;
+              ctx.globalAlpha = activePanelKey ? opacity : 0.95;
               ctx.beginPath();
               for (let i = 0; i < decSingle.length; i++) {
                 const p = decSingle[i];
-                ctx.moveTo(p.x + dotR, p.y);
-                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+                ctx.moveTo(p.x + dotR + 0.5, p.y);
+                ctx.arc(p.x, p.y, dotR + 0.5, 0, Math.PI * 2);
               }
               ctx.fillStyle = '#0d9488';
               ctx.fill();
@@ -1890,27 +1818,27 @@
 
             // 3. Double decorative (purple)
             if (decDouble.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.9;
+              ctx.globalAlpha = activePanelKey ? opacity : 0.95;
               ctx.beginPath();
               for (let i = 0; i < decDouble.length; i++) {
                 const p = decDouble[i];
-                ctx.moveTo(p.x + dotR, p.y);
-                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+                ctx.moveTo(p.x + dotR + 0.6, p.y);
+                ctx.arc(p.x, p.y, dotR + 0.6, 0, Math.PI * 2);
               }
               ctx.fillStyle = '#7c3aed';
               ctx.fill();
             }
 
-            // 4. Faulty lights (bright red beacons)
-            if (faultyLights.length > 0) {
-              ctx.globalAlpha = 1.0;
+            // 4. Poles (slate)
+            if (poles.length > 0) {
+              ctx.globalAlpha = activePanelKey ? opacity : 0.85;
               ctx.beginPath();
-              for (let i = 0; i < faultyLights.length; i++) {
-                const p = faultyLights[i];
-                ctx.moveTo(p.x + dotR + 1.8, p.y);
-                ctx.arc(p.x, p.y, dotR + 1.8, 0, Math.PI * 2);
+              for (let i = 0; i < poles.length; i++) {
+                const p = poles[i];
+                ctx.moveTo(p.x + dotR, p.y);
+                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
               }
-              ctx.fillStyle = '#dc2626';
+              ctx.fillStyle = '#334155';
               ctx.fill();
             }
 
@@ -1931,14 +1859,39 @@
               ctx.stroke();
             }
 
-            // 6. Panels on top
+            // 6. CCMS Panels on top (Crisp green rounded badge with yellow lightning bolt ⚡)
             ctx.globalAlpha = 1.0;
+            const pBox = zoom < 11 ? 16 : 20;
+            const pHalf = pBox / 2;
+            const pScale = pBox / 20;
             for (let i = 0; i < panels.length; i++) {
               const { pt, active } = panels[i];
-              ctx.drawImage(SPRITES.dotPanel, Math.round(pt.x - 8), Math.round(pt.y - 8));
+              const px = pt.x, py = pt.y;
+
+              ctx.beginPath();
+              if (ctx.roundRect) ctx.roundRect(px - pHalf, py - pHalf, pBox, pBox, 4);
+              else ctx.rect(px - pHalf, py - pHalf, pBox, pBox);
+              ctx.fillStyle = '#16a34a';
+              ctx.fill();
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 1.6;
+              ctx.stroke();
+
+              // Lightning bolt
+              ctx.beginPath();
+              ctx.moveTo(px + 1 * pScale, py - 5.5 * pScale);
+              ctx.lineTo(px - 3.2 * pScale, py + 0.3 * pScale);
+              ctx.lineTo(px + 0.2 * pScale, py + 0.3 * pScale);
+              ctx.lineTo(px - 1 * pScale, py + 5.5 * pScale);
+              ctx.lineTo(px + 4 * pScale, py - 0.8 * pScale);
+              ctx.lineTo(px + 1 * pScale, py - 0.8 * pScale);
+              ctx.closePath();
+              ctx.fillStyle = '#facc15';
+              ctx.fill();
+
               if (active) {
                 ctx.beginPath();
-                ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
+                ctx.arc(px, py, pHalf + 5, 0, Math.PI * 2);
                 ctx.strokeStyle = '#16a34a';
                 ctx.lineWidth = 3;
                 ctx.stroke();
@@ -1976,7 +1929,6 @@
             if (r.kind === 'double-decorative') sprite = SPRITES.doubleDec;
             else if (r.kind === 'single-decorative') sprite = SPRITES.singleDec;
             else if (r.kind === 'pole') sprite = SPRITES.pole;
-            else if (r.stState === 'faulty') sprite = SPRITES.lightOff;
 
             const opacity = activePanelKey && !active ? 0.20 : 1.0;
             if (ctx.globalAlpha !== opacity) ctx.globalAlpha = opacity;
@@ -2305,7 +2257,7 @@
       if (byId('statAssets')) byId('statAssets').textContent = rows.length.toLocaleString();
       byId('statLights').textContent = lights.toLocaleString();
       if (byId('statPanels')) byId('statPanels').textContent = panelsCount.toLocaleString();
-      byId('statFaults').textContent = faults.toLocaleString();
+      if (byId('statFaults')) byId('statFaults').textContent = faults.toLocaleString();
 
       if (byId('topStatLights')) byId('topStatLights').textContent = lights.toLocaleString();
       if (byId('topStatPanels')) byId('topStatPanels').textContent = panelsCount.toLocaleString();
