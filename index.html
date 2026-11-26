@@ -427,7 +427,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v7';
+    const DB_KEY = 'bundled_or_custom_v8';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -1739,174 +1739,21 @@
           const minLat = bounds.getSouth(), maxLat = bounds.getNorth();
           const minLng = bounds.getWest(), maxLng = bounds.getEast();
           const zoom = map.getZoom();
-          const isLowZoom = zoom < 13;
           const gridSize = 28;
           const hitGrid = this._hitGrid;
 
-          // =========================================================================
-          // FULL MAP VIEW (Low Zoom, zoom < 13):
-          // Renders 100% of all 39,666 points across Guwahati with ZERO skipped points.
-          // Clean discrete points with ZERO yellow glow/halo; roads & map are 100% clear!
-          // Panels rendered as crisp green CCMS badges with bright yellow lightning bolt ⚡.
-          // =========================================================================
-          if (isLowZoom) {
-            const workingLights = [];
-            const decSingle = [];
-            const decDouble = [];
-            const poles = [];
-            const panels = [];
+          // Categorize all visible assets
+          const workingLights = [];
+          const decSingle = [];
+          const decDouble = [];
+          const poles = [];
+          const panels = [];
 
-            const dotR = zoom < 11 ? 1.6 : zoom < 12 ? 2.2 : 2.8;
-
-            for (let i = 0; i < filteredList.length; i++) {
-              const r = filteredList[i];
-              if (r.lat < minLat || r.lat > maxLat || r.lng < minLng || r.lng > maxLng) continue;
-
-              const isPanel = r.kind === 'panel';
-              if (isPanel && !showPanelMarkers) continue;
-
-              const pt = map.latLngToContainerPoint([r.lat, r.lng]);
-              if (pt.x < -16 || pt.y < -16 || pt.x > size.x + 16 || pt.y > size.y + 16) continue;
-
-              const active = !!activePanelKey && r.panelKey === activePanelKey;
-
-              if (isPanel) {
-                panels.push({ pt, active, r });
-              } else if (r.kind === 'single-decorative') {
-                decSingle.push(pt);
-              } else if (r.kind === 'double-decorative') {
-                decDouble.push(pt);
-              } else if (r.kind === 'pole') {
-                poles.push(pt);
-              } else {
-                workingLights.push(pt);
-              }
-
-              const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
-              let bucket = hitGrid.get(key);
-              if (!bucket) hitGrid.set(key, bucket = []);
-              bucket.push({ x: pt.x, y: pt.y, r: 12, record: r });
-            }
-
-            const opacity = activePanelKey ? 0.22 : 1.0;
-
-            // 1. Working lights (discrete crisp amber beads; NO yellow halo/wash)
-            if (workingLights.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.92;
-              ctx.beginPath();
-              for (let i = 0; i < workingLights.length; i++) {
-                const p = workingLights[i];
-                ctx.moveTo(p.x + dotR, p.y);
-                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-              }
-              ctx.fillStyle = '#f59e0b';
-              ctx.fill();
-            }
-
-            // 2. Single decorative (teal)
-            if (decSingle.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.95;
-              ctx.beginPath();
-              for (let i = 0; i < decSingle.length; i++) {
-                const p = decSingle[i];
-                ctx.moveTo(p.x + dotR + 0.5, p.y);
-                ctx.arc(p.x, p.y, dotR + 0.5, 0, Math.PI * 2);
-              }
-              ctx.fillStyle = '#0d9488';
-              ctx.fill();
-            }
-
-            // 3. Double decorative (purple)
-            if (decDouble.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.95;
-              ctx.beginPath();
-              for (let i = 0; i < decDouble.length; i++) {
-                const p = decDouble[i];
-                ctx.moveTo(p.x + dotR + 0.6, p.y);
-                ctx.arc(p.x, p.y, dotR + 0.6, 0, Math.PI * 2);
-              }
-              ctx.fillStyle = '#7c3aed';
-              ctx.fill();
-            }
-
-            // 4. Poles (slate)
-            if (poles.length > 0) {
-              ctx.globalAlpha = activePanelKey ? opacity : 0.85;
-              ctx.beginPath();
-              for (let i = 0; i < poles.length; i++) {
-                const p = poles[i];
-                ctx.moveTo(p.x + dotR, p.y);
-                ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-              }
-              ctx.fillStyle = '#334155';
-              ctx.fill();
-            }
-
-            // 5. Active lights highlight
-            if (activePanelKey) {
-              const activePts = filteredList.filter(r => r.panelKey === activePanelKey && r.kind !== 'panel');
-              ctx.globalAlpha = 1.0;
-              ctx.beginPath();
-              for (let i = 0; i < activePts.length; i++) {
-                const r = activePts[i];
-                if (r.lat < minLat || r.lat > maxLat || r.lng < minLng || r.lng > maxLng) continue;
-                const pt = map.latLngToContainerPoint([r.lat, r.lng]);
-                ctx.moveTo(pt.x + dotR + 3.5, pt.y);
-                ctx.arc(pt.x, pt.y, dotR + 3.5, 0, Math.PI * 2);
-              }
-              ctx.strokeStyle = '#facc15';
-              ctx.lineWidth = 2.5;
-              ctx.stroke();
-            }
-
-            // 6. CCMS Panels on top (Crisp green rounded badge with yellow lightning bolt ⚡)
-            ctx.globalAlpha = 1.0;
-            const pBox = zoom < 11 ? 16 : 20;
-            const pHalf = pBox / 2;
-            const pScale = pBox / 20;
-            for (let i = 0; i < panels.length; i++) {
-              const { pt, active } = panels[i];
-              const px = pt.x, py = pt.y;
-
-              ctx.beginPath();
-              if (ctx.roundRect) ctx.roundRect(px - pHalf, py - pHalf, pBox, pBox, 4);
-              else ctx.rect(px - pHalf, py - pHalf, pBox, pBox);
-              ctx.fillStyle = '#16a34a';
-              ctx.fill();
-              ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = 1.6;
-              ctx.stroke();
-
-              // Lightning bolt
-              ctx.beginPath();
-              ctx.moveTo(px + 1 * pScale, py - 5.5 * pScale);
-              ctx.lineTo(px - 3.2 * pScale, py + 0.3 * pScale);
-              ctx.lineTo(px + 0.2 * pScale, py + 0.3 * pScale);
-              ctx.lineTo(px - 1 * pScale, py + 5.5 * pScale);
-              ctx.lineTo(px + 4 * pScale, py - 0.8 * pScale);
-              ctx.lineTo(px + 1 * pScale, py - 0.8 * pScale);
-              ctx.closePath();
-              ctx.fillStyle = '#facc15';
-              ctx.fill();
-
-              if (active) {
-                ctx.beginPath();
-                ctx.arc(px, py, pHalf + 5, 0, Math.PI * 2);
-                ctx.strokeStyle = '#16a34a';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-              }
-            }
-
-            ctx.globalAlpha = 1.0;
-            return;
-          }
-
-          // =========================================================================
-          // STREET LEVEL VIEW (High Zoom, zoom >= 13):
-          // Full pre-rendered glowing bulb sprites with filaments and base caps
-          // =========================================================================
-          const visiblePanels = [];
+          // Dynamic scale across all zoom levels (crisp white circular badges with colored border & icon center)
+          // Matches Image 2: discrete white rings with amber outline & bulb center, never blending into an orange blob!
+          const outerR = zoom < 10 ? 3.0 : zoom < 11 ? 3.6 : zoom < 12 ? 4.4 : zoom < 13 ? 5.4 : zoom < 15 ? 6.8 : 8.8;
+          const strokeW = zoom < 11 ? 1.1 : zoom < 13 ? 1.3 : 1.7;
+          const innerR = Math.max(1.3, outerR * 0.44);
 
           for (let i = 0; i < filteredList.length; i++) {
             const r = filteredList[i];
@@ -1916,60 +1763,231 @@
             if (isPanel && !showPanelMarkers) continue;
 
             const pt = map.latLngToContainerPoint([r.lat, r.lng]);
-            if (pt.x < -20 || pt.y < -20 || pt.x > size.x + 20 || pt.y > size.y + 20) continue;
+            if (pt.x < -24 || pt.y < -24 || pt.x > size.x + 24 || pt.y > size.y + 24) continue;
 
             const active = !!activePanelKey && r.panelKey === activePanelKey;
 
             if (isPanel) {
-              visiblePanels.push({ r, pt, active });
-              continue;
-            }
-
-            let sprite = SPRITES.lightOn;
-            if (r.kind === 'double-decorative') sprite = SPRITES.doubleDec;
-            else if (r.kind === 'single-decorative') sprite = SPRITES.singleDec;
-            else if (r.kind === 'pole') sprite = SPRITES.pole;
-
-            const opacity = activePanelKey && !active ? 0.20 : 1.0;
-            if (ctx.globalAlpha !== opacity) ctx.globalAlpha = opacity;
-
-            ctx.drawImage(sprite, Math.round(pt.x - sprite.width / 2), Math.round(pt.y - sprite.height / 2));
-
-            if (active) {
-              ctx.beginPath();
-              ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
-              ctx.strokeStyle = '#facc15';
-              ctx.lineWidth = 2.5;
-              ctx.stroke();
+              panels.push({ pt, active, r });
+            } else if (r.kind === 'single-decorative') {
+              decSingle.push(pt);
+            } else if (r.kind === 'double-decorative') {
+              decDouble.push(pt);
+            } else if (r.kind === 'pole') {
+              poles.push(pt);
+            } else {
+              workingLights.push(pt);
             }
 
             const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
             let bucket = hitGrid.get(key);
             if (!bucket) hitGrid.set(key, bucket = []);
-            bucket.push({ x: pt.x, y: pt.y, r: 12, record: r });
+            bucket.push({ x: pt.x, y: pt.y, r: Math.max(outerR + 5, 12), record: r });
           }
 
-          // Draw panels on top
-          for (let i = 0; i < visiblePanels.length; i++) {
-            const { r, pt, active } = visiblePanels[i];
-            const sprite = SPRITES.panel;
-            const opacity = activePanelKey && !active ? 0.28 : 1.0;
-            if (ctx.globalAlpha !== opacity) ctx.globalAlpha = opacity;
+          const opacity = activePanelKey ? 0.22 : 1.0;
 
-            ctx.drawImage(sprite, Math.round(pt.x - sprite.width / 2), Math.round(pt.y - sprite.height / 2));
+          // =========================================================================
+          // 1. WORKING LIGHTS (Crisp white badges with amber border & bulb center)
+          // =========================================================================
+          if (workingLights.length > 0) {
+            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
+
+            // Step 1: Crisp white circular badges (prevents colors merging into solid blobs)
+            ctx.beginPath();
+            for (let i = 0; i < workingLights.length; i++) {
+              const p = workingLights[i];
+              ctx.moveTo(p.x + outerR, p.y);
+              ctx.arc(p.x, p.y, outerR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            // Step 2: Golden/amber borders
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+
+            // Step 3: Glowing bulb centers
+            ctx.beginPath();
+            for (let i = 0; i < workingLights.length; i++) {
+              const p = workingLights[i];
+              ctx.moveTo(p.x + innerR, p.y);
+              ctx.arc(p.x, p.y, innerR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#f59e0b';
+            ctx.fill();
+
+            // Step 4: When zoomed in (zoom >= 13), add subtle bulb base for high-detail view
+            if (zoom >= 13) {
+              ctx.beginPath();
+              const capW = innerR * 0.7;
+              for (let i = 0; i < workingLights.length; i++) {
+                const p = workingLights[i];
+                ctx.moveTo(p.x - capW, p.y + innerR + 1.2);
+                ctx.lineTo(p.x + capW, p.y + innerR + 1.2);
+              }
+              ctx.strokeStyle = '#334155';
+              ctx.lineWidth = 1.4;
+              ctx.stroke();
+            }
+          }
+
+          // =========================================================================
+          // 2. SINGLE DECORATIVE LIGHTS (White badge with teal border & lamp center)
+          // =========================================================================
+          if (decSingle.length > 0) {
+            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
+            const decOuterR = outerR + 0.4;
+            const decInnerR = innerR + 0.3;
+
+            ctx.beginPath();
+            for (let i = 0; i < decSingle.length; i++) {
+              const p = decSingle[i];
+              ctx.moveTo(p.x + decOuterR, p.y);
+              ctx.arc(p.x, p.y, decOuterR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#0d9488';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let i = 0; i < decSingle.length; i++) {
+              const p = decSingle[i];
+              ctx.moveTo(p.x + decInnerR, p.y);
+              ctx.arc(p.x, p.y, decInnerR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#0d9488';
+            ctx.fill();
+          }
+
+          // =========================================================================
+          // 3. DOUBLE DECORATIVE LIGHTS (White badge with purple border & lamp center)
+          // =========================================================================
+          if (decDouble.length > 0) {
+            ctx.globalAlpha = activePanelKey ? opacity : 1.0;
+            const decOuterR = outerR + 0.6;
+            const decInnerR = innerR + 0.4;
+
+            ctx.beginPath();
+            for (let i = 0; i < decDouble.length; i++) {
+              const p = decDouble[i];
+              ctx.moveTo(p.x + decOuterR, p.y);
+              ctx.arc(p.x, p.y, decOuterR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#7c3aed';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let i = 0; i < decDouble.length; i++) {
+              const p = decDouble[i];
+              ctx.moveTo(p.x + decInnerR, p.y);
+              ctx.arc(p.x, p.y, decInnerR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#7c3aed';
+            ctx.fill();
+          }
+
+          // =========================================================================
+          // 4. POLES (White badge with dark slate border & center)
+          // =========================================================================
+          if (poles.length > 0) {
+            ctx.globalAlpha = activePanelKey ? opacity : 0.9;
+            ctx.beginPath();
+            for (let i = 0; i < poles.length; i++) {
+              const p = poles[i];
+              ctx.moveTo(p.x + outerR, p.y);
+              ctx.arc(p.x, p.y, outerR, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let i = 0; i < poles.length; i++) {
+              const p = poles[i];
+              ctx.moveTo(p.x + innerR * 0.9, p.y);
+              ctx.arc(p.x, p.y, innerR * 0.9, 0, Math.PI * 2);
+            }
+            ctx.fillStyle = '#334155';
+            ctx.fill();
+          }
+
+          // =========================================================================
+          // 5. ACTIVE CIRCUIT HIGHLIGHT (Lights on selected panel)
+          // =========================================================================
+          if (activePanelKey) {
+            const activePts = filteredList.filter(r => r.panelKey === activePanelKey && r.kind !== 'panel');
+            ctx.globalAlpha = 1.0;
+            ctx.beginPath();
+            for (let i = 0; i < activePts.length; i++) {
+              const r = activePts[i];
+              if (r.lat < minLat || r.lat > maxLat || r.lng < minLng || r.lng > maxLng) continue;
+              const pt = map.latLngToContainerPoint([r.lat, r.lng]);
+              ctx.moveTo(pt.x + outerR + 3.5, pt.y);
+              ctx.arc(pt.x, pt.y, outerR + 3.5, 0, Math.PI * 2);
+            }
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          }
+
+          // =========================================================================
+          // 6. CCMS CONTROL PANELS (Crisp green rounded badges with yellow lightning bolt ⚡)
+          // =========================================================================
+          ctx.globalAlpha = 1.0;
+          const pBox = zoom < 11 ? 18 : zoom < 13 ? 22 : 26;
+          const pHalf = pBox / 2;
+          const pScale = pBox / 22;
+
+          for (let i = 0; i < panels.length; i++) {
+            const { pt, active } = panels[i];
+            const px = pt.x, py = pt.y;
+
+            // Green rounded badge
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(px - pHalf, py - pHalf, pBox, pBox, 5);
+            else ctx.rect(px - pHalf, py - pHalf, pBox, pBox);
+            ctx.fillStyle = '#16a34a';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            // Inner dark green border for depth
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(px - pHalf + 2, py - pHalf + 2, pBox - 4, pBox - 4, 3);
+            else ctx.rect(px - pHalf + 2, py - pHalf + 2, pBox - 4, pBox - 4);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+
+            // Bold yellow lightning bolt (⚡)
+            ctx.beginPath();
+            ctx.moveTo(px + 1.2 * pScale, py - 6.0 * pScale);
+            ctx.lineTo(px - 3.8 * pScale, py + 0.4 * pScale);
+            ctx.lineTo(px + 0.3 * pScale, py + 0.4 * pScale);
+            ctx.lineTo(px - 1.2 * pScale, py + 6.0 * pScale);
+            ctx.lineTo(px + 4.8 * pScale, py - 0.9 * pScale);
+            ctx.lineTo(px + 1.2 * pScale, py - 0.9 * pScale);
+            ctx.closePath();
+            ctx.fillStyle = '#facc15';
+            ctx.fill();
 
             if (active) {
               ctx.beginPath();
-              ctx.arc(pt.x, pt.y, 16, 0, Math.PI * 2);
+              ctx.arc(px, py, pHalf + 6, 0, Math.PI * 2);
               ctx.strokeStyle = '#16a34a';
-              ctx.lineWidth = 3;
+              ctx.lineWidth = 3.5;
               ctx.stroke();
             }
-
-            const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
-            let bucket = hitGrid.get(key);
-            if (!bucket) hitGrid.set(key, bucket = []);
-            bucket.push({ x: pt.x, y: pt.y, r: 14, record: r });
           }
 
           ctx.globalAlpha = 1.0;
