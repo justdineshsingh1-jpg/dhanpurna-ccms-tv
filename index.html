@@ -441,7 +441,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v5';
+    const DB_KEY = 'bundled_or_custom_v6';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -470,7 +470,15 @@
         const tx = db.transaction(DB_STORE, 'readonly');
         const req = tx.objectStore(DB_STORE).get(DB_KEY);
         return new Promise(res => {
-          req.onsuccess = () => res(req.result || null);
+          req.onsuccess = () => {
+            const data = req.result || null;
+            if (data && Array.isArray(data.records)) {
+              for (let i = 0; i < data.records.length; i++) {
+                data.records[i].city = 'Guwahati';
+              }
+            }
+            res(data);
+          };
           req.onerror = () => res(null);
         });
       } catch (e) { return null; }
@@ -773,9 +781,7 @@
       const cached = await loadDatasetFromCache();
       if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
         for (let i = 0; i < cached.records.length; i++) {
-          if (!cached.records[i].city || cached.records[i].city === 'Unassigned city') {
-            cached.records[i].city = 'Guwahati';
-          }
+          cached.records[i].city = 'Guwahati';
         }
         allRecords = cached.records;
         byId('uploadOverlay').classList.add('hidden');
@@ -979,10 +985,8 @@
 
       for (let i = 0; i < allRecords.length; i++) {
         const r = allRecords[i];
-
-        if (r.city && r.city !== 'Unassigned city') {
-          cityMap.set(r.city, (cityMap.get(r.city) || 0) + 1);
-        }
+        r.city = 'Guwahati';
+        cityMap.set('Guwahati', (cityMap.get('Guwahati') || 0) + 1);
 
         if (r.panelKey && r.kind !== 'panel') lightCounts.set(r.panelKey, (lightCounts.get(r.panelKey) || 0) + 1);
 
@@ -1425,13 +1429,7 @@
 
         if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
 
-        let city = colCity ? String(r[colCity] || '').trim() : '';
-        if (!city && colPhotoLoc && r[colPhotoLoc]) {
-          const folder = String(r[colPhotoLoc]).split(/[\\/]/)[0].trim();
-          const m = folder.match(/^(.+?)\s+Light_Images?$/i);
-          if (m && m[1] && !/^\d*\s*city$/i.test(m[1])) city = m[1].trim();
-        }
-        if (!city || city === 'Unassigned city') city = 'Guwahati';
+        const city = 'Guwahati';
 
         const rawItem = colItem ? String(r[colItem] || '').trim() : 'Light';
         const lowerItem = rawItem.toLowerCase();
@@ -1603,18 +1601,9 @@
     // 6. FILTERING & ZERO-HANG VIEWPORT RENDERING
     // =========================================================================
     function buildCityControls() {
-      const counts = new Map();
-      allRecords.forEach(r => {
-        const c = (!r.city || r.city === 'Unassigned city') ? 'Guwahati' : r.city;
-        counts.set(c, (counts.get(c) || 0) + 1);
-      });
-      const cities = Array.from(counts.keys()).sort((a, b) => a.localeCompare(b));
-
-      byId('citySelect').innerHTML = `<option value="">All cities (${allRecords.length.toLocaleString()})</option>` +
-        cities.map(c => `<option value="${esc(c)}">${esc(c)} (${counts.get(c).toLocaleString()})</option>`).join('');
-
-      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="">All cities</button>` +
-        cities.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}">${esc(c)}</button>`).join('');
+      allRecords.forEach(r => { r.city = 'Guwahati'; });
+      byId('citySelect').innerHTML = `<option value="Guwahati" selected>Guwahati (${allRecords.length.toLocaleString()})</option>`;
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${allRecords.length.toLocaleString()})</button>`;
     }
 
     function applyFilters(zoomToFit) {
@@ -2162,11 +2151,13 @@
       // Decompose tree into non-overlapping continuous line chains
       const visitedEdges = new Set();
       const edgeKey = (u, v) => (u < v ? `${u}:${v}` : `${v}:${u}`);
-      const junctions = [];
-      for (let i = 0; i < n; i++) {
-        if (adj[i].length !== 2) junctions.push(i);
+      // The CCMS Panel (Node 0) is the power origin and MUST always be treated as a junction/root
+      // so all 2, 3, or more feeder lines connected to the panel originate directly at the panel
+      const isJunction = idx => idx === 0 || adj[idx].length !== 2;
+      const junctions = [0];
+      for (let i = 1; i < n; i++) {
+        if (isJunction(i)) junctions.push(i);
       }
-      if (!junctions.length) junctions.push(0);
 
       const chains = [];
       for (const start of junctions) {
@@ -2178,7 +2169,7 @@
           const chain = [uniquePoints[start], uniquePoints[nbr]];
           let prev = start, curr = nbr;
 
-          while (adj[curr].length === 2) {
+          while (!isJunction(curr)) {
             const nextNode = adj[curr][0] === prev ? adj[curr][1] : adj[curr][0];
             const nextKey = edgeKey(curr, nextNode);
             if (visitedEdges.has(nextKey)) break;
@@ -2271,7 +2262,7 @@
       const statusTag = `<span class="status-tag ${r.stState === 'faulty' ? 'bad' : r.stState === 'unknown' ? 'unknown' : ''}">${esc(r.status)}</span>`;
 
       const fields = [
-        ['City', r.city],
+        ['City', 'Guwahati'],
         ['Road / Lane', r.lane],
         ['Panel', r.panel],
         ['Asset Type', r.item],
