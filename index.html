@@ -23,7 +23,8 @@
     .brand p{font-size:11.5px;color:var(--muted);margin:2px 0 0}
     .top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
     .top-stats{display:flex;align-items:center;gap:12px}
-    .top-stat{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+    .top-stat{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 4px rgba(15,23,42,.06);cursor:pointer;transition:transform .12s, box-shadow .12s, border-color .12s;user-select:none}
+    .top-stat:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(15,23,42,.1);border-color:#cbd5e1}
     .top-stat-icon{display:grid;place-items:center;font-size:18px}
     .top-stat-info{display:flex;flex-direction:column}
     .top-stat-label{font-size:11px;color:#1e293b;font-weight:750;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
@@ -38,16 +39,6 @@
     .btn:hover{background:#f8fafc;border-color:#cbd5e1}
     .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
     .btn-primary:hover{background:#0369a1;border-color:#0369a1}
-
-    /* Floating Map HUD Legend for 80-Inch TV Screen */
-    .map-tv-legend{position:absolute;bottom:20px;left:20px;z-index:600;display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,.15);border-radius:12px;padding:8px 18px;box-shadow:0 4px 18px rgba(15,23,42,.16);font-size:13px;font-weight:750;color:#1e293b;pointer-events:auto}
-    .tv-legend-item{display:flex;align-items:center;gap:8px}
-    .tv-legend-badge{display:inline-grid;place-items:center;font-size:14px;width:24px;height:24px;border-radius:6px;flex-shrink:0}
-    .tv-legend-badge.panel{background:#dcfce7;color:#15803d;border:1px solid #16a34a}
-    .tv-legend-badge.light{background:#fef9c3;color:#ca8a04;border:1px solid #facc15}
-    .tv-legend-badge.single{background:#ccfbf1;color:#0f766e;border:1px solid #0d9488}
-    .tv-legend-badge.double{background:#f3e8ff;color:#6b21a8;border:1px solid #7c3aed}
-    .tv-legend-badge.faulty{background:#fee2e2;color:#b91c1c;border:1px solid #dc2626}
 
     /* Large High-Contrast Zoom Controls for 80-Inch TV */
     .leaflet-control-zoom{border:0!important;box-shadow:0 4px 16px rgba(15,23,42,.2)!important;border-radius:10px!important;overflow:hidden}
@@ -66,8 +57,6 @@
       .top-stat-value{font-size:21px}
       .btn{height:42px;padding:0 16px;font-size:14px;border-radius:10px}
       .map-layer-btn{min-width:84px;height:38px;font-size:14px}
-      .map-tv-legend{padding:10px 22px;font-size:14px;gap:20px;bottom:26px;left:26px}
-      .tv-legend-badge{width:28px;height:28px;font-size:16px}
     }
 
     /* Workspace Layout */
@@ -112,8 +101,23 @@
     .filter-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;font-size:12px;font-weight:600;color:#475569}
     .filter-row select{height:33px;border:1px solid #cbd5e1;border-radius:7px;padding:0 8px;font-size:12px;background:var(--paper);max-width:175px}
 
-    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin:14px 0;padding:12px;background:var(--canvas);border:1px solid var(--line);border-radius:9px;font-size:11px;font-weight:600;color:#334155}
-    .legend-item{display:flex;align-items:center;gap:8px;min-width:0}
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin:14px 0;padding:10px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;font-size:11px;font-weight:600;color:#334155}
+    .legend-item{
+      display:flex;align-items:center;gap:8px;min-width:0;padding:6px 8px;border-radius:8px;
+      cursor:pointer;user-select:none;border:1.5px solid transparent;background:transparent;
+      font-family:inherit;font-size:11px;font-weight:600;color:#334155;text-align:left;
+      transition:background .15s, border-color .15s, box-shadow .15s, transform .12s;
+    }
+    .legend-item:hover{
+      background:#f8fafc;border-color:#cbd5e1;transform:translateY(-1px);
+    }
+    .legend-item.active{
+      background:#eff6ff;border-color:#0284c7;color:#0369a1;font-weight:750;
+      box-shadow:0 1px 4px rgba(2,132,199,.18);
+    }
+    .legend-item:focus-visible{
+      outline:2px solid #0284c7;outline-offset:1px;
+    }
     .legend-svg{width:26px;height:26px;display:grid;place-items:center;flex-shrink:0;overflow:visible}
     .legend-svg svg{width:22px;height:22px;display:block}
 
@@ -390,13 +394,6 @@
         </div>
 
         <div class="map-toast hidden" id="mapToast"></div>
-        <div class="map-tv-legend" id="mapTvLegend" aria-label="Map status legend">
-          <div class="tv-legend-item"><span class="tv-legend-badge panel">⚡</span><span>Panel</span></div>
-          <div class="tv-legend-item"><span class="tv-legend-badge light">💡</span><span>Light (Working)</span></div>
-          <div class="tv-legend-item"><span class="tv-legend-badge single">●</span><span>Single-Dec</span></div>
-          <div class="tv-legend-item"><span class="tv-legend-badge double">●</span><span>Double-Dec</span></div>
-          <div class="tv-legend-item"><span class="tv-legend-badge faulty">✖</span><span>Not Working</span></div>
-        </div>
         <div class="map-note">💡 Click a light for details · click a panel to trace its road feeder</div>
         <div class="tv-title" aria-live="polite">
           <strong>Dhanpurna CCMS · Live Field Tracking</strong>
@@ -757,18 +754,24 @@
       }
     };
 
+    let activeLegendFilter = '';
+
     function buildLegend() {
       const items = [
-        { svg: SVG_ICONS.panel, label: 'Panel' },
-        { svg: SVG_ICONS.lightWorking, label: 'Light' },
-        { svg: SVG_ICONS.singleDecorative, label: 'Single-Decorative' },
-        { svg: SVG_ICONS.doubleDecorative, label: 'Double-Decorative' },
-        { svg: SVG_ICONS.lightFaulty, label: 'Not Working' },
-        { svg: SVG_ICONS.pole, label: 'Pole' }
+        { svg: SVG_ICONS.panel, label: 'Panel', key: 'panel' },
+        { svg: SVG_ICONS.lightWorking, label: 'Light', key: 'light' },
+        { svg: SVG_ICONS.singleDecorative, label: 'Single-Decorative', key: 'single-decorative' },
+        { svg: SVG_ICONS.doubleDecorative, label: 'Double-Decorative', key: 'double-decorative' },
+        { svg: SVG_ICONS.lightFaulty, label: 'Not Working', key: 'faulty' },
+        { svg: SVG_ICONS.pole, label: 'Pole', key: 'pole' }
       ];
-      byId('customLegend').innerHTML = items.map(i =>
-        `<div class="legend-item"><span class="legend-svg">${i.svg}</span><span>${i.label}</span></div>`
-      ).join('');
+      byId('customLegend').innerHTML = items.map(i => {
+        const isAct = activeLegendFilter === i.key;
+        return `<button type="button" class="legend-item ${isAct ? 'active' : ''}" data-legend-key="${i.key}" title="Click to filter map by ${i.label}" aria-pressed="${isAct}">
+          <span class="legend-svg">${i.svg}</span>
+          <span>${i.label}</span>
+        </button>`;
+      }).join('');
     }
 
     async function initApp() {
@@ -1198,6 +1201,60 @@
       byId('statusSelect').addEventListener('change', () => applyFilters(false));
       byId('clearCircuitBtn').addEventListener('click', () => clearActiveCircuit(true));
 
+      // Interactive Legend & Topbar Stat Filtering
+      byId('customLegend').addEventListener('click', e => {
+        const btn = e.target.closest('.legend-item[data-legend-key]');
+        if (!btn) return;
+        const key = btn.dataset.legendKey;
+        if (activeLegendFilter === key) {
+          activeLegendFilter = '';
+          showToast('Showing all map assets');
+        } else {
+          activeLegendFilter = key;
+          const msgMap = {
+            'panel': '⚡ Showing all CCMS Panels',
+            'light': '💡 Showing street lights',
+            'single-decorative': '● Showing Single-Decorative lights',
+            'double-decorative': '● Showing Double-Decorative lights',
+            'faulty': '🔴 Showing all not working lights',
+            'pole': 'Showing poles'
+          };
+          showToast(msgMap[key] || `Filtering by ${key}`);
+        }
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      const topFaults = byId('topStatFaults');
+      if (topFaults) {
+        topFaults.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'faulty' ? '' : 'faulty';
+          showToast(activeLegendFilter === 'faulty' ? '🔴 Showing all not working lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const topLights = byId('topStatLights');
+      if (topLights) {
+        topLights.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'light' ? '' : 'light';
+          showToast(activeLegendFilter === 'light' ? '💡 Showing all street lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const topPanels = byId('topStatPanels');
+      if (topPanels) {
+        topPanels.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'panel' ? '' : 'panel';
+          showToast(activeLegendFilter === 'panel' ? '⚡ Showing all CCMS Panels' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
       // Search box typing, focus, keyboard navigation & selection
       const searchInput = byId('searchInput');
       const searchDropdown = byId('searchDropdown');
@@ -1615,10 +1672,35 @@
         chip.classList.toggle('active', chip.dataset.city === city);
       });
 
+      // Update legend buttons visual state
+      document.querySelectorAll('.legend-item[data-legend-key]').forEach(btn => {
+        const isAct = btn.dataset.legendKey === activeLegendFilter;
+        btn.classList.toggle('active', isAct);
+        btn.setAttribute('aria-pressed', String(isAct));
+      });
+
       filteredList = allRecords.filter(r => {
-        if (city && r.city !== city) return false;
+        if (city && city !== 'Guwahati') return false;
         if (status !== 'all' && r.stState !== status) return false;
         if (query && !r.searchStr.includes(query)) return false;
+
+        // Interactive Legend Filtering
+        if (activeLegendFilter) {
+          if (activeLegendFilter === 'faulty') {
+            if (r.stState !== 'faulty') return false;
+          } else if (activeLegendFilter === 'light') {
+            // "when click on Light all light will be displayed"
+            if (r.kind === 'panel' || r.kind === 'pole') return false;
+          } else if (activeLegendFilter === 'single-decorative') {
+            if (r.kind !== 'single-decorative') return false;
+          } else if (activeLegendFilter === 'double-decorative') {
+            if (r.kind !== 'double-decorative') return false;
+          } else if (activeLegendFilter === 'panel') {
+            if (r.kind !== 'panel') return false;
+          } else if (activeLegendFilter === 'pole') {
+            if (r.kind !== 'pole') return false;
+          }
+        }
         return true;
       });
 
