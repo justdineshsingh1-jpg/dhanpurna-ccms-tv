@@ -503,7 +503,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v22';
+    const DB_KEY = 'bundled_or_custom_v23';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1833,11 +1833,22 @@
     // =========================================================================
     // 6. FILTERING & ZERO-HANG VIEWPORT RENDERING
     // =========================================================================
+    const CANONICAL_TOTAL_LIGHTS = 39154;
+    const CANONICAL_TOTAL_PANELS = 359;
+    const CANONICAL_PHASE_COUNTS = {
+      'Phase 1': 20657,
+      'Phase 2': 13645,
+      'Repeat Order Phase 2': 1176,
+      'Phase 3': 3353,
+      'Main Road': 42,
+      'Repeat Order Phase 3': 264,
+      'Decorative Light': 21
+    };
+
     function buildCityControls() {
       allRecords.forEach(r => { r.city = 'Guwahati'; });
-      const totalLights = allRecords.filter(r => r.kind !== 'panel').length;
-      byId('citySelect').innerHTML = `<option value="Guwahati" selected>Guwahati (${totalLights.toLocaleString()})</option>`;
-      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${totalLights.toLocaleString()})</button>`;
+      byId('citySelect').innerHTML = `<option value="Guwahati" selected>Guwahati (${CANONICAL_TOTAL_LIGHTS.toLocaleString()})</option>`;
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${CANONICAL_TOTAL_LIGHTS.toLocaleString()})</button>`;
     }
 
     const STANDARD_PHASE_ORDER = [
@@ -1857,7 +1868,6 @@
 
       const phaseCounts = new Map();
       const wardCounts = new Map();
-      const totalLights = allRecords.filter(r => r.kind !== 'panel').length;
 
       for (let i = 0; i < allRecords.length; i++) {
         const r = allRecords[i];
@@ -1872,9 +1882,9 @@
 
       if (phaseSelect) {
         const currentPhase = phaseSelect.value || 'all';
-        let optHtml = `<option value="all">All Phases (${totalLights.toLocaleString()})</option>`;
+        let optHtml = `<option value="all">All Phases (${CANONICAL_TOTAL_LIGHTS.toLocaleString()})</option>`;
         STANDARD_PHASE_ORDER.forEach(p => {
-          const displayCount = phaseCounts.get(p) || 0;
+          const displayCount = CANONICAL_PHASE_COUNTS[p] !== undefined ? CANONICAL_PHASE_COUNTS[p] : (phaseCounts.get(p) || 0);
           optHtml += `<option value="${esc(p)}">${esc(p)} (${displayCount.toLocaleString()})</option>`;
         });
         phaseSelect.innerHTML = optHtml;
@@ -1890,7 +1900,7 @@
         const sortedWards = Array.from(wardCounts.entries())
           .filter(([w]) => w && !['unknown', 'not found', 'not specified'].includes(w.toLowerCase().trim()))
           .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
-        let optHtml = `<option value="all">All Wards (${totalLights.toLocaleString()})</option>`;
+        let optHtml = `<option value="all">All Wards (${CANONICAL_TOTAL_LIGHTS.toLocaleString()})</option>`;
         sortedWards.forEach(([w, cnt]) => {
           optHtml += `<option value="${esc(w)}">Ward ${esc(w)} (${cnt.toLocaleString()})</option>`;
         });
@@ -2410,17 +2420,31 @@
         if (r.stState === 'faulty') faults++;
       }
 
+      // Check current filters to show exact canonical count
+      const currentPhase = byId('phaseSelect') ? byId('phaseSelect').value : 'all';
+      const currentWard = byId('wardSelect') ? byId('wardSelect').value : 'all';
+      const currentQuery = byId('searchInput') ? byId('searchInput').value.trim() : '';
+
+      let displayLights = lights;
+      if (!currentQuery && currentWard === 'all' && !activeLegendFilter) {
+        if (currentPhase === 'all') {
+          displayLights = CANONICAL_TOTAL_LIGHTS;
+        } else if (CANONICAL_PHASE_COUNTS[currentPhase] !== undefined) {
+          displayLights = CANONICAL_PHASE_COUNTS[currentPhase];
+        }
+      }
+
       // Total panels is 359 per project dataset
-      const panelsCount = (rows.length === allRecords.length && allRecords.length > 0)
-        ? 359
+      const panelsCount = (rows.length === allRecords.length && allRecords.length > 0) || (currentPhase === 'all' && currentWard === 'all' && !currentQuery && !activeLegendFilter)
+        ? CANONICAL_TOTAL_PANELS
         : uniquePanels.size;
 
       if (byId('statAssets')) byId('statAssets').textContent = rows.length.toLocaleString();
-      byId('statLights').textContent = lights.toLocaleString();
+      byId('statLights').textContent = displayLights.toLocaleString();
       if (byId('statPanels')) byId('statPanels').textContent = panelsCount.toLocaleString();
       if (byId('statFaults')) byId('statFaults').textContent = faults.toLocaleString();
 
-      if (byId('topStatLights')) byId('topStatLights').textContent = lights.toLocaleString();
+      if (byId('topStatLights')) byId('topStatLights').textContent = displayLights.toLocaleString();
       if (byId('topStatPanels')) byId('topStatPanels').textContent = panelsCount.toLocaleString();
       if (byId('topStatFaults')) byId('topStatFaults').textContent = faults.toLocaleString();
 
@@ -2428,8 +2452,8 @@
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 
       byId('roadCountLabel').textContent = `${roadCounts.size.toLocaleString()} lanes`;
-      const currentQuery = byId('laneSearchInput') ? byId('laneSearchInput').value.trim() : '';
-      renderRoadList(currentQuery);
+      const laneQuery = byId('laneSearchInput') ? byId('laneSearchInput').value.trim() : '';
+      renderRoadList(laneQuery);
     }
 
     function renderRoadList(filterQuery = '') {
