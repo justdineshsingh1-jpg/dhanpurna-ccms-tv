@@ -248,26 +248,81 @@
     .presentation-mode.presentation-controls-open .map-note{display:block}
     .asset-canvas-layer{outline:none}
     .asset-canvas-layer:focus-visible{box-shadow:inset 0 0 0 3px #2783de}
+    .mobile-sidebar-header{display:none}
+    .sidebar-backdrop{display:none}
+
     @media (prefers-reduced-motion: reduce){.circuit-flow-line,.circuit-electric-pulse{animation:none!important}}
     @media (max-width:900px){
       .topbar{gap:8px;padding:8px 12px;flex-wrap:wrap}
       .top-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}
-      .btn{min-height:40px;padding:0 10px}
+      .btn{min-height:38px;padding:0 10px}
       .brand h1{font-size:14px}
     }
     @media (max-width:768px){
-      .workspace{grid-template-columns:1fr;grid-template-rows:42% 58%}
-      .sidebar{border-right:0;border-bottom:1px solid var(--line)}
-      .db-badge{display:none}
-      .topbar{min-height:62px;align-items:flex-start}
-      .top-actions{width:100%;margin-left:0;justify-content:flex-start}
-      .top-actions .btn{font-size:11.5px}
-      .brand{flex:1}
-      .presentation-mode.presentation-controls-open .workspace{grid-template-columns:1fr;grid-template-rows:1fr;padding-top:160px}
-      .presentation-mode.presentation-controls-open .sidebar{position:absolute;top:160px;left:0;right:0;z-index:700;max-height:34dvh}
-      .presentation-mode.presentation-controls-open .topbar{min-height:148px}
-      .map-search-control{top:58px;width:calc(100% - 24px)}
-      .basemap-control{top:10px;left:12px}
+      .sidebar-backdrop{
+        display:block;position:fixed;inset:0;background:rgba(15,23,42,.45);
+        backdrop-filter:blur(2px);z-index:750;opacity:0;pointer-events:none;
+        transition:opacity .22s ease;
+      }
+      body:not(.dashboard-hidden) .sidebar-backdrop{
+        opacity:1;pointer-events:auto;
+      }
+      .workspace{
+        position:relative;display:block;height:100%;overflow:hidden;
+      }
+      .map-wrap{
+        position:absolute;inset:0;width:100%;height:100%;
+      }
+      .sidebar{
+        position:fixed;left:0;right:0;bottom:0;top:auto;
+        max-height:85dvh;height:auto;z-index:800;
+        background:var(--paper);border-top:1px solid var(--line);border-right:0;
+        border-radius:20px 20px 0 0;box-shadow:0 -6px 28px rgba(15,23,42,.22);
+        padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+        transform:translateY(100%);transition:transform .25s cubic-bezier(0.16,1,0.3,1);
+        display:flex!important;flex-direction:column;overflow-y:auto;
+      }
+      body:not(.dashboard-hidden) .sidebar{
+        transform:translateY(0);
+      }
+      .mobile-sidebar-header{
+        display:flex;align-items:center;justify-content:space-between;
+        padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--line);
+      }
+      .mobile-sidebar-title{font-size:14px;font-weight:750;color:#1e293b}
+      .mobile-sidebar-close{
+        width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:0;
+        color:#475569;font-size:16px;font-weight:700;display:grid;place-items:center;cursor:pointer;
+      }
+      .mobile-sidebar-close:active{background:#e2e8f0}
+
+      /* Compact mobile topbar */
+      .topbar{min-height:52px;padding:6px 12px;gap:8px;align-items:center}
+      .brand-mark{width:30px;height:30px}
+      .brand-mark svg{width:16px;height:16px}
+      .brand h1{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:145px}
+      .brand p{display:none}
+      .top-stat{padding:4px 8px;gap:6px;border-radius:8px}
+      .top-stat-icon{font-size:15px}
+      .top-stat-label{font-size:9px}
+      .top-stat-value{font-size:13.5px}
+      .top-actions{gap:4px;margin-left:auto;width:auto}
+      .top-actions .btn{min-height:34px;height:34px;padding:0 9px;font-size:11.5px}
+      #fullscreenBtn, #uploadCsvBtn { display:none!important; }
+
+      /* Mobile map controls */
+      .map-search-control{
+        top:10px;left:10px;right:10px;width:auto;max-width:none;transform:none;
+      }
+      .map-search-control .search{
+        height:40px;font-size:13px;padding:0 36px 0 38px;
+      }
+      .basemap-control{
+        top:58px;left:10px;box-shadow:0 2px 6px rgba(0,0,0,.15);
+      }
+      .map-layer-btn{min-width:58px;height:28px;font-size:12px;padding:0 8px}
+      .map-toast{top:96px;font-size:11.5px;max-width:92%}
+      .map-note{display:none}
     }
   </style>
 </head>
@@ -316,7 +371,12 @@
     </header>
 
     <main class="workspace">
+      <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
       <aside class="sidebar">
+        <div class="mobile-sidebar-header">
+          <div class="mobile-sidebar-title">⚡ Control &amp; Filters</div>
+          <button type="button" class="mobile-sidebar-close" id="closeSidebarBtn" aria-label="Close filters">✕</button>
+        </div>
         <div class="stats">
           <div class="stat"><span class="stat-label">Total Lights</span><strong class="stat-value" id="statLights">0</strong></div>
         </div>
@@ -427,7 +487,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v11';
+    const DB_KEY = 'bundled_or_custom_v12';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -474,9 +534,9 @@
     // 2. DISTINCT VECTOR SVG ICONS & CACHED ICON INSTANCES
     // =========================================================================
     const SVG_ICONS = {
-      panel: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
-        <path d="M12 28C12 28 3 17.5 3 10.5C3 5.8 7 2 12 2C17 2 21 5.8 21 10.5C21 17.5 12 28 12 28Z" fill="#16a34a" stroke="#ffffff" stroke-width="1.8"/>
-        <polygon points="12.8,4.8 7.8,11.2 11.4,11.2 10.2,16.5 16.2,9.8 12.4,9.8" fill="#ffffff"/>
+      panel: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
+        <polygon points="12.8,4.5 7.5,11.5 11.5,11.5 10.5,18.5 16.5,10.5 12.5,10.5" fill="#ffffff"/>
       </svg>`,
       lightWorking: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
         <path d="M12 28C12 28 3 17.5 3 10.5C3 5.8 7 2 12 2C17 2 21 5.8 21 10.5C21 17.5 12 28 12 28Z" fill="#ffa705" stroke="#ffffff" stroke-width="1.8"/>
@@ -518,7 +578,7 @@
 
       let svg = SVG_ICONS.lightWorking;
       let size = [26, 26];
-      if (kind === 'panel') { svg = SVG_ICONS.panel; size = [26, 30]; }
+      if (kind === 'panel') { svg = SVG_ICONS.panel; size = [26, 26]; }
       else if (kind === 'double-decorative') { svg = SVG_ICONS.doubleDecorative; size = [32, 32]; }
       else if (kind === 'single-decorative') { svg = SVG_ICONS.singleDecorative; size = [30, 30]; }
       else if (kind === 'pole') { svg = SVG_ICONS.pole; size = [24, 24]; }
@@ -560,7 +620,7 @@
     // =========================================================================
     // 2B. PRE-RENDERED HIGH-PERFORMANCE SPRITES (60 FPS on TV & Mobile)
     // =========================================================================
-    function createPinSprite(w, h, pinColor, iconType = 'light') {
+    function createPinSprite(w, h, pinColor) {
       const dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 2.5);
       const c = document.createElement('canvas');
       c.width = Math.round(w * dpr);
@@ -588,41 +648,68 @@
       ctx.lineWidth = 0.7;
       ctx.stroke();
 
-      if (iconType === 'panel') {
-        // Crisp white lightning bolt for CCMS Control Panel
-        ctx.beginPath();
-        ctx.moveTo(12.8, 4.8);
-        ctx.lineTo(7.8, 11.2);
-        ctx.lineTo(11.4, 11.2);
-        ctx.lineTo(10.2, 16.5);
-        ctx.lineTo(16.2, 9.8);
-        ctx.lineTo(12.4, 9.8);
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-      } else {
-        // White serrated sunburst core (from user reference image)
-        const cx = 12, cy = 10.5;
-        const rOuter = 4.6, rInner = 3.3, points = 12;
-        ctx.beginPath();
-        for (let i = 0; i < points * 2; i++) {
-          const angle = (i * Math.PI) / points - Math.PI / 2;
-          const r = i % 2 === 0 ? rOuter : rInner;
-          const x = cx + Math.cos(angle) * r;
-          const y = cy + Math.sin(angle) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-
-        // Solid white center core
-        ctx.beginPath();
-        ctx.arc(cx, cy, 3.2, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
+      // White serrated sunburst core (from user reference image)
+      const cx = 12, cy = 10.5;
+      const rOuter = 4.6, rInner = 3.3, points = 12;
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const angle = (i * Math.PI) / points - Math.PI / 2;
+        const r = i % 2 === 0 ? rOuter : rInner;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Solid white center core
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      return c;
+    }
+
+    function createPanelCircleSprite(size) {
+      const dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 2.5);
+      const c = document.createElement('canvas');
+      c.width = Math.round(size * dpr);
+      c.height = Math.round(size * dpr);
+      c.style.width = `${size}px`;
+      c.style.height = `${size}px`;
+      const ctx = c.getContext('2d');
+      ctx.scale(dpr * (size / 24), dpr * (size / 24));
+
+      // Circular panel badge in #16a34a (green circle)
+      ctx.beginPath();
+      ctx.arc(12, 12, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#16a34a';
+      ctx.fill();
+
+      // Outer crisp white border
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // Subtle shadow outline
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Centered white lightning bolt
+      ctx.beginPath();
+      ctx.moveTo(12.8, 4.5);
+      ctx.lineTo(7.5, 11.5);
+      ctx.lineTo(11.5, 11.5);
+      ctx.lineTo(10.5, 18.5);
+      ctx.lineTo(16.5, 10.5);
+      ctx.lineTo(12.5, 10.5);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
 
       return c;
     }
@@ -634,14 +721,14 @@
         this.initialized = true;
 
         // Street Light sprites (#ffa705 golden-yellow teardrop pin with sunburst)
-        this.pinSmall = createPinSprite(13, 17, '#ffa705', 'light');
-        this.pinMedium = createPinSprite(16, 21, '#ffa705', 'light');
-        this.pinLarge = createPinSprite(22, 28, '#ffa705', 'light');
+        this.pinSmall = createPinSprite(13, 17, '#ffa705');
+        this.pinMedium = createPinSprite(16, 21, '#ffa705');
+        this.pinLarge = createPinSprite(22, 28, '#ffa705');
 
-        // CCMS Control Panel sprites (#16a34a emerald-green teardrop pin with lightning bolt)
-        this.panelSmall = createPinSprite(15, 19, '#16a34a', 'panel');
-        this.panelMedium = createPinSprite(18, 23, '#16a34a', 'panel');
-        this.panelLarge = createPinSprite(24, 30, '#16a34a', 'panel');
+        // CCMS Control Panel circle sprites (#16a34a circle badge with lightning bolt)
+        this.panelSmall = createPanelCircleSprite(16);
+        this.panelMedium = createPanelCircleSprite(20);
+        this.panelLarge = createPanelCircleSprite(26);
       }
     };
 
@@ -1030,6 +1117,9 @@
         clearActiveCircuit(false);
         applyFilters(true);
       }
+      if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+        toggleDashboardPanels();
+      }
     }
 
     function bindEvents() {
@@ -1043,6 +1133,8 @@
         renderViewportSmart();
       });
       if (byId('toggleDashboardBtn')) byId('toggleDashboardBtn').addEventListener('click', toggleDashboardPanels);
+      if (byId('closeSidebarBtn')) byId('closeSidebarBtn').addEventListener('click', toggleDashboardPanels);
+      if (byId('sidebarBackdrop')) byId('sidebarBackdrop').addEventListener('click', toggleDashboardPanels);
       if (byId('refreshBtn')) {
         byId('refreshBtn').addEventListener('click', () => {
           if (location.protocol === 'file:') {
@@ -1210,6 +1302,9 @@
         byId('clearSearch').style.display = 'block';
         clearActiveCircuit(false);
         applyFilters(true);
+        if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+          toggleDashboardPanels();
+        }
       });
 
       const laneSearchInput = byId('laneSearchInput');
@@ -1681,22 +1776,21 @@
           let lightSprite = SPRITES.pinMedium;
           let panelSprite = SPRITES.panelMedium;
           let pinW = 16, pinH = 21;
-          let panelW = 18, panelH = 23;
+          let panelSize = 20;
           if (zoom < 11) {
             lightSprite = SPRITES.pinSmall;
             panelSprite = SPRITES.panelSmall;
             pinW = 13; pinH = 17;
-            panelW = 15; panelH = 19;
+            panelSize = 16;
           } else if (zoom >= 13) {
             lightSprite = SPRITES.pinLarge;
             panelSprite = SPRITES.panelLarge;
             pinW = 22; pinH = 28;
-            panelW = 24; panelH = 30;
+            panelSize = 26;
           }
           const anchorX = Math.round(pinW / 2);
           const anchorY = Math.round(pinH * (28 / 30));
-          const pAnchorX = Math.round(panelW / 2);
-          const pAnchorY = Math.round(panelH * (28 / 30));
+          const pRadius = Math.round(panelSize / 2);
 
           const visibleLights = [];
           const visiblePanels = [];
@@ -1720,7 +1814,7 @@
             const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
             let bucket = hitGrid.get(key);
             if (!bucket) hitGrid.set(key, bucket = []);
-            bucket.push({ x: pt.x, y: pt.y - (isPanel ? pAnchorY : anchorY) / 2, r: isPanel ? 14 : 11, record: r, isPanel });
+            bucket.push({ x: pt.x, y: isPanel ? pt.y : (pt.y - anchorY / 2), r: isPanel ? (pRadius + 4) : 11, record: r, isPanel });
           }
 
           const opacity = activePanelKey ? 0.22 : 1.0;
@@ -1742,16 +1836,16 @@
             }
           }
 
-          // 2. Draw CCMS Control Panels ON TOP with distinct green lightning bolt icon
+          // 2. Draw CCMS Control Panels ON TOP as circular badges
           for (let i = 0; i < visiblePanels.length; i++) {
             const { pt, active } = visiblePanels[i];
             ctx.globalAlpha = 1.0;
 
-            ctx.drawImage(panelSprite, Math.round(pt.x - pAnchorX), Math.round(pt.y - pAnchorY), panelW, panelH);
+            ctx.drawImage(panelSprite, Math.round(pt.x - pRadius), Math.round(pt.y - pRadius), panelSize, panelSize);
 
             if (active) {
               ctx.beginPath();
-              ctx.arc(pt.x, pt.y - pAnchorY / 2, pAnchorX + 5, 0, Math.PI * 2);
+              ctx.arc(pt.x, pt.y, pRadius + 4, 0, Math.PI * 2);
               ctx.strokeStyle = '#22c55e';
               ctx.lineWidth = 3.0;
               ctx.stroke();
