@@ -503,7 +503,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v19';
+    const DB_KEY = 'bundled_or_custom_v20';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1835,8 +1835,9 @@
     // =========================================================================
     function buildCityControls() {
       allRecords.forEach(r => { r.city = 'Guwahati'; });
-      byId('citySelect').innerHTML = `<option value="Guwahati" selected>Guwahati (${allRecords.length.toLocaleString()})</option>`;
-      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${allRecords.length.toLocaleString()})</button>`;
+      const totalLights = allRecords.filter(r => r.kind !== 'panel').length;
+      byId('citySelect').innerHTML = `<option value="Guwahati" selected>Guwahati (${totalLights.toLocaleString()})</option>`;
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${totalLights.toLocaleString()})</button>`;
     }
 
     const STANDARD_PHASE_ORDER = [
@@ -1849,16 +1850,6 @@
       'Decorative Light'
     ];
 
-    const CANONICAL_PHASE_COUNTS = {
-      'Phase 1': 20657,
-      'Phase 2': 13645,
-      'Phase 3': 3353,
-      'Repeat Order Phase 2': 1176,
-      'Repeat Order Phase 3': 264,
-      'Main Road': 42,
-      'Decorative Light': 21
-    };
-
     function buildPhaseAndWardControls() {
       const phaseSelect = byId('phaseSelect');
       const wardSelect = byId('wardSelect');
@@ -1866,9 +1857,11 @@
 
       const phaseCounts = new Map();
       const wardCounts = new Map();
+      const totalLights = allRecords.filter(r => r.kind !== 'panel').length;
 
       for (let i = 0; i < allRecords.length; i++) {
         const r = allRecords[i];
+        if (r.kind === 'panel') continue;
         if (r.phase && !['unknown', 'not specified'].includes(r.phase.toLowerCase().trim())) {
           phaseCounts.set(r.phase, (phaseCounts.get(r.phase) || 0) + 1);
         }
@@ -1879,9 +1872,9 @@
 
       if (phaseSelect) {
         const currentPhase = phaseSelect.value || 'all';
-        let optHtml = `<option value="all">All Phases (${allRecords.length.toLocaleString()})</option>`;
+        let optHtml = `<option value="all">All Phases (${totalLights.toLocaleString()})</option>`;
         STANDARD_PHASE_ORDER.forEach(p => {
-          const displayCount = CANONICAL_PHASE_COUNTS[p] !== undefined ? CANONICAL_PHASE_COUNTS[p] : (phaseCounts.get(p) || 0);
+          const displayCount = phaseCounts.get(p) || 0;
           optHtml += `<option value="${esc(p)}">${esc(p)} (${displayCount.toLocaleString()})</option>`;
         });
         phaseSelect.innerHTML = optHtml;
@@ -1897,7 +1890,7 @@
         const sortedWards = Array.from(wardCounts.entries())
           .filter(([w]) => w && !['unknown', 'not found', 'not specified'].includes(w.toLowerCase().trim()))
           .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
-        let optHtml = `<option value="all">All Wards (${allRecords.length.toLocaleString()})</option>`;
+        let optHtml = `<option value="all">All Wards (${totalLights.toLocaleString()})</option>`;
         sortedWards.forEach(([w, cnt]) => {
           optHtml += `<option value="${esc(w)}">Ward ${esc(w)} (${cnt.toLocaleString()})</option>`;
         });
@@ -2415,12 +2408,6 @@
           roadCounts.set(r.lane, (roadCounts.get(r.lane) || 0) + 1);
         }
         if (r.stState === 'faulty') faults++;
-      }
-
-      // If a specific phase is selected, ensure the light count displayed matches the phase count exactly everywhere
-      const activePhase = byId('phaseSelect') ? byId('phaseSelect').value : 'all';
-      if (activePhase !== 'all' && CANONICAL_PHASE_COUNTS[activePhase] !== undefined) {
-        lights = CANONICAL_PHASE_COUNTS[activePhase];
       }
 
       // Total panels is 359 per project dataset
