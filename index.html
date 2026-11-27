@@ -487,7 +487,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v12';
+    const DB_KEY = 'bundled_or_custom_v13';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -734,6 +734,52 @@
 
     let activeLegendFilter = '';
 
+    function resetAllFilters(refreshMap = true) {
+      activeLegendFilter = '';
+      activePanelKey = '';
+      if (byId('searchInput')) {
+        byId('searchInput').value = '';
+        if (byId('clearSearch')) byId('clearSearch').style.display = 'none';
+      }
+      if (byId('searchDropdown')) byId('searchDropdown').classList.remove('show');
+      if (byId('statusSelect')) byId('statusSelect').value = 'all';
+      if (byId('citySelect')) byId('citySelect').value = 'Guwahati';
+      if (byId('laneSearchInput')) {
+        byId('laneSearchInput').value = '';
+        if (byId('clearLaneSearch')) byId('clearLaneSearch').style.display = 'none';
+      }
+      if (byId('circuitBanner')) byId('circuitBanner').classList.remove('active');
+      if (circuitLayer) circuitLayer.clearLayers();
+
+      // Clear active states on legend buttons
+      document.querySelectorAll('.legend-item[data-legend-key]').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+
+      // Clear active states on top stat cards
+      document.querySelectorAll('.top-stat').forEach(card => {
+        card.classList.remove('active');
+      });
+
+      // Clear query params from browser URL so subsequent page reloads stay clean
+      try {
+        if (window.history && window.history.replaceState) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('q');
+          url.searchParams.delete('city');
+          url.searchParams.delete('status');
+          url.searchParams.delete('panel');
+          const clean = url.pathname + (url.search ? url.search : '') + (url.hash ? url.hash : '');
+          window.history.replaceState({}, document.title, clean);
+        }
+      } catch (_) {}
+
+      if (refreshMap) {
+        applyFilters(true);
+      }
+    }
+
     function buildLegend() {
       const items = [
         { svg: SVG_ICONS.panel, label: 'Panel', key: 'panel' },
@@ -753,6 +799,7 @@
       buildLegend();
       initMap();
       bindEvents();
+      resetAllFilters(false);
       applyInitialViewSettings();
 
       const cached = await loadDatasetFromCache();
@@ -764,9 +811,9 @@
         byId('uploadOverlay').classList.add('hidden');
         updateCacheIndicator(cached.fileName, allRecords.length, cached.savedAt);
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
+        resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
-        applySharedFiltersFromUrl();
         applyFilters(true);
       }
 
@@ -841,10 +888,9 @@
         byId('uploadOverlay').classList.add('hidden');
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
         updateCacheIndicator('data.csv (Shared)', allRecords.length, nowStr);
-        clearActiveCircuit(false);
+        resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
-        applySharedFiltersFromUrl();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from shared data.csv`);
       } catch (err) {
@@ -857,6 +903,7 @@
         } else {
           showToast('Could not refresh shared data.csv; showing the saved copy on this device.');
         }
+        applyFilters(true);
       }
     }
 
@@ -891,10 +938,9 @@
         byId('uploadOverlay').classList.add('hidden');
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = location.protocol === 'file:' ? 'none' : 'inline-flex';
         updateCacheIndicator('Included survey data', allRecords.length, nowStr);
-        clearActiveCircuit(false);
+        resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
-        applySharedFiltersFromUrl();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from included survey data`);
         return true;
@@ -1137,6 +1183,8 @@
       if (byId('sidebarBackdrop')) byId('sidebarBackdrop').addEventListener('click', toggleDashboardPanels);
       if (byId('refreshBtn')) {
         byId('refreshBtn').addEventListener('click', () => {
+          resetAllFilters(false);
+          showToast('↻ Reset all filters and reloading…');
           if (location.protocol === 'file:') {
             window.location.reload();
           } else {
@@ -1156,6 +1204,8 @@
 
       if (byId('reloadSharedBtn')) {
         byId('reloadSharedBtn').addEventListener('click', () => {
+          resetAllFilters(false);
+          showToast('↻ Reset all filters and reloading…');
           fetchAndLoadBundledCsv(null);
         });
       }
@@ -1366,9 +1416,9 @@
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
         updateCacheIndicator(file.name, allRecords.length, nowStr);
         clearActiveCircuit(false);
+        resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
-        applySharedFiltersFromUrl();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} points from ${file.name}`);
       } catch (error) {
@@ -1648,6 +1698,12 @@
         btn.classList.toggle('active', isAct);
         btn.setAttribute('aria-pressed', String(isAct));
       });
+
+      // Update top stat cards visual state
+      const topLightsEl = byId('topStatLights');
+      if (topLightsEl) topLightsEl.closest('.top-stat').classList.toggle('active', activeLegendFilter === 'light');
+      const topPanelsEl = byId('topStatPanels');
+      if (topPanelsEl) topPanelsEl.closest('.top-stat').classList.toggle('active', activeLegendFilter === 'panel');
 
       filteredList = allRecords.filter(r => {
         if (city && city !== 'Guwahati') return false;
