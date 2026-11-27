@@ -399,6 +399,20 @@
         </div>
 
         <div class="filter-row">
+          <label for="phaseSelect">Filter Phase</label>
+          <select id="phaseSelect">
+            <option value="all">All Phases</option>
+          </select>
+        </div>
+
+        <div class="filter-row">
+          <label for="wardSelect">Ward No</label>
+          <select id="wardSelect">
+            <option value="all">All Wards</option>
+          </select>
+        </div>
+
+        <div class="filter-row">
           <label for="statusSelect">Light Status</label>
           <select id="statusSelect">
             <option value="all">All statuses</option>
@@ -490,7 +504,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v15';
+    const DB_KEY = 'bundled_or_custom_v16';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -740,6 +754,8 @@
         if (byId('clearSearch')) byId('clearSearch').style.display = 'none';
       }
       if (byId('searchDropdown')) byId('searchDropdown').classList.remove('show');
+      if (byId('phaseSelect')) byId('phaseSelect').value = 'all';
+      if (byId('wardSelect')) byId('wardSelect').value = 'all';
       if (byId('statusSelect')) byId('statusSelect').value = 'all';
       if (byId('citySelect')) byId('citySelect').value = 'Guwahati';
       if (byId('laneSearchInput')) {
@@ -812,6 +828,7 @@
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
+        buildPhaseAndWardControls();
         applyFilters(true);
 
         // If this device holds a custom uploaded CSV, preserve it across page reloads!
@@ -894,6 +911,7 @@
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
+        buildPhaseAndWardControls();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from shared data.csv`);
       } catch (err) {
@@ -944,6 +962,7 @@
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
+        buildPhaseAndWardControls();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from included survey data`);
         return true;
@@ -1025,6 +1044,8 @@
               lane: r.lane,
               count: 0
             });
+          } else if (r.lane && r.lane !== 'Lane not specified' && panelMap.get(r.panelKey).lane === 'Lane not specified') {
+            panelMap.get(r.panelKey).lane = r.lane;
           }
           panelMap.get(r.panelKey).count++;
         }
@@ -1072,9 +1093,37 @@
         .filter(c => c.name.toLowerCase().includes(query))
         .slice(0, 5);
 
-      const matchedPanels = searchCatalog.panels
-        .filter(p => p.label.toLowerCase().includes(query) || p.city.toLowerCase().includes(query))
-        .slice(0, 8);
+      const numMatch = query.match(/\d+/);
+      const searchNum = numMatch ? parseInt(numMatch[0], 10) : null;
+
+      const scoredPanels = [];
+      for (let i = 0; i < searchCatalog.panels.length; i++) {
+        const p = searchCatalog.panels[i];
+        const l = p.label.toLowerCase();
+        const c = p.city.toLowerCase();
+        const pNumMatch = l.match(/panel\s*[-–—:]?\s*(\d+)/i);
+        const panelNum = pNumMatch ? parseInt(pNumMatch[1], 10) : null;
+
+        let score = -1;
+        if (l === query) {
+          score = 1000;
+        } else if (searchNum !== null && panelNum === searchNum) {
+          score = 900;
+        } else if (pNumMatch && pNumMatch[1].startsWith(query)) {
+          score = 800;
+        } else if (l.startsWith(query)) {
+          score = 700;
+        } else if (l.includes(query) || c.includes(query)) {
+          score = 500;
+        }
+
+        if (score >= 0) {
+          scoredPanels.push({ ...p, _score: score, _num: panelNum });
+        }
+      }
+
+      scoredPanels.sort((a, b) => b._score - a._score || (a._num || 9999) - (b._num || 9999) || a.label.localeCompare(b.label));
+      const matchedPanels = scoredPanels.slice(0, 16);
 
       const matchedRoads = searchCatalog.roads
         .filter(r => r.label.toLowerCase().includes(query) || r.city.toLowerCase().includes(query))
@@ -1104,13 +1153,14 @@
       if (matchedPanels.length > 0) {
         html += `<div class="dropdown-header">Panels (${matchedPanels.length})</div>`;
         matchedPanels.forEach(p => {
+          const count = lightCountsByPanel.get(p.key) || p.count;
           html += `
             <button type="button" class="dropdown-item" data-type="panel" data-key="${esc(p.key)}" data-val="${esc(p.label)}" data-city="${esc(p.city)}">
               <div class="item-main">
-                <span class="item-title">⚡ ${highlightMatch(p.label, query)}</span>
+                <span class="item-title">🅿️ ${highlightMatch(p.label, query)}</span>
                 <span class="item-sub">${esc(p.city)} · ${esc(p.lane)}</span>
               </div>
-              <span class="item-badge">${p.count} pts</span>
+              <span class="item-badge">${count} lights</span>
             </button>`;
         });
       }
@@ -1193,6 +1243,7 @@
             updateCacheIndicator(currentCache.fileName, allRecords.length, currentCache.savedAt, true);
             buildSearchCatalog();
             buildCityControls();
+            buildPhaseAndWardControls();
             applyFilters(true);
             showToast(`↻ Reset filters & refreshed ${currentCache.fileName} (${allRecords.length.toLocaleString()} points)`);
           } else {
@@ -1240,6 +1291,8 @@
       });
 
       byId('citySelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
+      if (byId('phaseSelect')) byId('phaseSelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
+      if (byId('wardSelect')) byId('wardSelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
       byId('statusSelect').addEventListener('change', () => applyFilters(false));
       byId('clearCircuitBtn').addEventListener('click', () => clearActiveCircuit(true));
 
@@ -1432,6 +1485,7 @@
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
+        buildPhaseAndWardControls();
         applyFilters(true);
         showToast(`✅ Loaded ${allRecords.length.toLocaleString()} points from ${file.name}`);
       } catch (error) {
@@ -1490,6 +1544,9 @@
         rows.slice(0, 8).some(row => String(row[key] || '').trim() && !looksLikeTimestamp(row[key]))
       ) || findCol(['panel no location', 'panel no', 'panel number', 'panel location', 'panel']);
 
+      const colPhase = findCol(['phase', 'phases', 'project phase']);
+      const colWard = findCol(['ward no', 'ward', 'ward number', 'wardno']);
+
       const colCity = findCol(['city', 'town', 'municipality']);
       const colLane = findCol(['name of bye lane road', 'bye lane road', 'road name', 'lane', 'road']);
       const colItem = findCol(['item light fitting panel', 'item', 'asset type', 'type']);
@@ -1534,10 +1591,13 @@
         // Treat all lights as active working lights (Not Working status temporarily removed as requested)
         const stState = 'working';
 
-        const panel = colPanel ? String(r[colPanel] || '').trim() : '';
+        let panel = colPanel ? String(r[colPanel] || '').trim() : '';
+        if (looksLikeTimestamp(panel)) panel = '';
         const lane = colLane ? String(r[colLane] || '').trim() : 'Lane not specified';
         const panelKey = panel ? `${city}|${panel}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
         const photoUrl = colPhoto ? String(r[colPhoto] || '').trim() : '';
+        const phase = colPhase ? String(r[colPhase] || '').trim() : '';
+        const ward = colWard ? String(r[colWard] || '').trim() : '';
 
         clean.push({
           lat, lng, city, lane,
@@ -1548,13 +1608,15 @@
           kind,
           status: rawStatus || 'Unknown',
           stState,
+          phase,
+          ward,
           pole: colPole ? String(r[colPole] || '').trim() : '',
           date: colDate ? String(r[colDate] || '').trim() : '',
           time: colTime ? String(r[colTime] || '').trim() : '',
           surveyor: colSurveyor ? String(r[colSurveyor] || '').trim() : '',
           contractor: colContractor ? String(r[colContractor] || '').trim() : '',
           photoUrl: /^https?:\/\//i.test(photoUrl) ? photoUrl : '',
-          searchStr: `${city} ${lane} ${panel} ${rawItem}`.toLowerCase()
+          searchStr: `${city} ${lane} ${panel} ${rawItem} ${phase} ${ward}`.toLowerCase()
         });
       }
       return clean;
@@ -1710,10 +1772,65 @@
       byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${allRecords.length.toLocaleString()})</button>`;
     }
 
+    function buildPhaseAndWardControls() {
+      const phaseSelect = byId('phaseSelect');
+      const wardSelect = byId('wardSelect');
+      if (!phaseSelect && !wardSelect) return;
+
+      const phaseCounts = new Map();
+      const wardCounts = new Map();
+
+      for (let i = 0; i < allRecords.length; i++) {
+        const r = allRecords[i];
+        if (r.phase) {
+          phaseCounts.set(r.phase, (phaseCounts.get(r.phase) || 0) + 1);
+        }
+        if (r.ward) {
+          wardCounts.set(r.ward, (wardCounts.get(r.ward) || 0) + 1);
+        }
+      }
+
+      if (phaseSelect) {
+        const currentPhase = phaseSelect.value || 'all';
+        const sortedPhases = Array.from(phaseCounts.entries()).sort((a, b) => {
+          return a[0].localeCompare(b[0], undefined, { numeric: true });
+        });
+        let optHtml = `<option value="all">All Phases (${allRecords.length.toLocaleString()})</option>`;
+        sortedPhases.forEach(([p, cnt]) => {
+          optHtml += `<option value="${esc(p)}">${esc(p)} (${cnt.toLocaleString()})</option>`;
+        });
+        phaseSelect.innerHTML = optHtml;
+        if (sortedPhases.some(([p]) => p === currentPhase)) {
+          phaseSelect.value = currentPhase;
+        } else {
+          phaseSelect.value = 'all';
+        }
+      }
+
+      if (wardSelect) {
+        const currentWard = wardSelect.value || 'all';
+        const sortedWards = Array.from(wardCounts.entries()).sort((a, b) => {
+          return a[0].localeCompare(b[0], undefined, { numeric: true });
+        });
+        let optHtml = `<option value="all">All Wards (${allRecords.length.toLocaleString()})</option>`;
+        sortedWards.forEach(([w, cnt]) => {
+          optHtml += `<option value="${esc(w)}">Ward ${esc(w)} (${cnt.toLocaleString()})</option>`;
+        });
+        wardSelect.innerHTML = optHtml;
+        if (sortedWards.some(([w]) => w === currentWard)) {
+          wardSelect.value = currentWard;
+        } else {
+          wardSelect.value = 'all';
+        }
+      }
+    }
+
     function applyFilters(zoomToFit) {
       const city = byId('citySelect').value;
       const query = byId('searchInput').value.toLowerCase().trim();
       const status = byId('statusSelect').value;
+      const phase = byId('phaseSelect') ? byId('phaseSelect').value : 'all';
+      const ward = byId('wardSelect') ? byId('wardSelect').value : 'all';
 
       byId('cityChips').querySelectorAll('[data-city]').forEach(chip => {
         chip.classList.toggle('active', chip.dataset.city === city);
@@ -1735,6 +1852,8 @@
       filteredList = allRecords.filter(r => {
         if (city && city !== 'Guwahati') return false;
         if (status !== 'all' && r.stState !== status) return false;
+        if (phase !== 'all' && r.phase !== phase) return false;
+        if (ward !== 'all' && r.ward !== ward) return false;
         if (query && !r.searchStr.includes(query)) return false;
 
         // Interactive Legend Filtering
@@ -2263,6 +2382,8 @@
         ['City', 'Guwahati'],
         ['Road / Lane', r.lane],
         ['Panel', r.panel],
+        r.phase ? ['Phase', r.phase] : null,
+        r.ward ? ['Ward No', r.ward] : null,
         ['Asset Type', r.item],
         ['Status', statusTag],
         r.pole ? ['Pole Type', r.pole] : null,
@@ -2277,7 +2398,7 @@
       ).join('');
 
       const traceBtn = linkedCount > 0
-        ? `<button class="popup-btn primary" type="button" data-panel-key="${esc(r.panelKey)}">⚡ Trace panel circuit</button>`
+        ? `<button class="popup-btn primary" type="button" data-panel-key="${esc(r.panelKey)}">🅿️ Trace panel circuit</button>`
         : '';
       const photoBtn = r.photoUrl
         ? `<a class="popup-btn" href="${esc(r.photoUrl)}" target="_blank" rel="noopener">📷 Open photo</a>`
