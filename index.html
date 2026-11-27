@@ -504,7 +504,9 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v16';
+    const DB_KEY = 'bundled_or_custom_v17';
+    let cachedSurveyedPanels = [];
+    let panelMetaMap = new Map();
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -516,6 +518,15 @@
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
+    }
+
+    async function clearDatasetCache() {
+      try {
+        const db = await openLocalDB();
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).delete(DB_KEY);
+        return new Promise(res => { tx.oncomplete = res; tx.onerror = res; });
+      } catch (e) { console.warn('Cache clear skipped:', e); }
     }
 
     async function saveDatasetToCache(payload) {
@@ -822,6 +833,11 @@
           cached.records[i].city = 'Guwahati';
         }
         allRecords = cached.records;
+        const panelRows = allRecords.filter(r => r.kind === 'panel');
+        if (panelRows.length > 0) {
+          cachedSurveyedPanels = panelRows;
+          window.CACHED_SURVEYED_PANELS = panelRows;
+        }
         byId('uploadOverlay').classList.add('hidden');
         updateCacheIndicator(cached.fileName, allRecords.length, cached.savedAt, !!cached.isCustomUpload);
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
@@ -846,32 +862,33 @@
         }
         return;
       }
-      // Hosted data.csv is the shared source of truth. A local upload is only a
-      // preview/cache for this browser and must never block the hosted refresh.
+      // Hosted data.csv is the shared source of truth.
       await fetchAndLoadBundledCsv(cached);
     }
 
-    async function fetchAndLoadBundledCsv(existingCache = null) {
+    async function fetchAndLoadBundledCsv(existingCache = null, forceReload = false) {
       if (location.protocol === 'file:') {
         showManualUploadPrompt('Browsers block loading a nearby data.csv from a file:// page. Select the CSV manually, or host index.html, data.csv, and vendor/ together over HTTPS for a shared TV link.');
         return;
       }
       try {
         let remoteSig = '';
-        try {
-          const headRes = await fetch(BUNDLED_CSV_PATH, { method: 'HEAD', cache: 'no-cache' });
-          if (headRes.ok) {
-            remoteSig = `${headRes.headers.get('etag') || ''}|${headRes.headers.get('last-modified') || ''}|${headRes.headers.get('content-length') || ''}`;
+        if (!forceReload) {
+          try {
+            const headRes = await fetch(BUNDLED_CSV_PATH, { method: 'HEAD', cache: 'no-cache' });
+            if (headRes.ok) {
+              remoteSig = `${headRes.headers.get('etag') || ''}|${headRes.headers.get('last-modified') || ''}|${headRes.headers.get('content-length') || ''}`;
+            }
+          } catch (_) {
+            // Some static hosts do not support HEAD. The GET below is the source of truth.
           }
-        } catch (_) {
-          // Some static hosts do not support HEAD. The GET below is the source of truth.
+
+          if (existingCache && !existingCache.isCustomUpload && remoteSig && existingCache.signature === remoteSig && existingCache.records.length > 0) {
+            return;
+          }
         }
 
-        if (existingCache && !existingCache.isCustomUpload && remoteSig && existingCache.signature === remoteSig && existingCache.records.length > 0) {
-          return;
-        }
-
-        if (!existingCache) {
+        if (!existingCache || forceReload) {
           byId('uploadOverlay').classList.remove('hidden');
           byId('progressBar').style.display = 'block';
           byId('progressFill').style.width = '35%';
@@ -895,6 +912,14 @@
         }
 
         allRecords = parsed.records;
+        const panelRows = allRecords.filter(r => r.kind === 'panel');
+        if (panelRows.length > 0) {
+          cachedSurveyedPanels = panelRows;
+          window.CACHED_SURVEYED_PANELS = panelRows;
+        } else if (cachedSurveyedPanels.length > 0) {
+          allRecords = allRecords.concat(cachedSurveyedPanels);
+        }
+
         const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
         await saveDatasetToCache({
@@ -948,6 +973,12 @@
         if (!parsed.records.length) return false;
 
         allRecords = parsed.records;
+        const panelRows = allRecords.filter(r => r.kind === 'panel');
+        if (panelRows.length > 0) {
+          cachedSurveyedPanels = panelRows;
+          window.CACHED_SURVEYED_PANELS = panelRows;
+        }
+
         const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
         await saveDatasetToCache({
           fileName: 'Included survey data',
@@ -1064,6 +1095,20 @@
       }
 
       lightCountsByPanel = lightCounts;
+      panelMetaMap = new Map();
+      for (let i = 0; i < allRecords.length; i++) {
+        const r = allRecords[i];
+        if (r.panelKey) {
+          if (!panelMetaMap.has(r.panelKey)) {
+            panelMetaMap.set(r.panelKey, { phase: r.phase, ward: r.ward });
+          } else {
+            const m = panelMetaMap.get(r.panelKey);
+            if (!m.phase && r.phase) m.phase = r.phase;
+            if (!m.ward && r.ward) m.ward = r.ward;
+          }
+        }
+      }
+
       searchCatalog = {
         cities: Array.from(cityMap.entries()).map(([name, count]) => ({ name, count })),
         panels: Array.from(panelMap.values()),
@@ -1237,22 +1282,14 @@
       if (byId('refreshBtn')) {
         byId('refreshBtn').addEventListener('click', async () => {
           resetAllFilters(false);
-          const currentCache = await loadDatasetFromCache();
-          if (currentCache && currentCache.isCustomUpload && Array.isArray(currentCache.records) && currentCache.records.length > 0) {
-            allRecords = currentCache.records;
-            updateCacheIndicator(currentCache.fileName, allRecords.length, currentCache.savedAt, true);
-            buildSearchCatalog();
-            buildCityControls();
-            buildPhaseAndWardControls();
-            applyFilters(true);
-            showToast(`↻ Reset filters & refreshed ${currentCache.fileName} (${allRecords.length.toLocaleString()} points)`);
+          showToast('🔄 Fetching latest data from server…');
+          try {
+            await clearDatasetCache();
+          } catch (_) {}
+          if (location.protocol === 'file:') {
+            window.location.reload();
           } else {
-            showToast('↻ Reset all filters and reloading…');
-            if (location.protocol === 'file:') {
-              window.location.reload();
-            } else {
-              fetchAndLoadBundledCsv(null);
-            }
+            await fetchAndLoadBundledCsv(null, true);
           }
         });
       }
@@ -1267,10 +1304,13 @@
       });
 
       if (byId('reloadSharedBtn')) {
-        byId('reloadSharedBtn').addEventListener('click', () => {
+        byId('reloadSharedBtn').addEventListener('click', async () => {
           resetAllFilters(false);
-          showToast('↻ Reset all filters and reloading…');
-          fetchAndLoadBundledCsv(null);
+          showToast('🔄 Fetching latest data from server…');
+          try {
+            await clearDatasetCache();
+          } catch (_) {}
+          await fetchAndLoadBundledCsv(null, true);
         });
       }
 
@@ -1451,6 +1491,20 @@
       });
     }
 
+    function normalizePhase(val) {
+      if (!val) return '';
+      const s = String(val).trim();
+      const lower = s.toLowerCase();
+      if (lower.includes('repeat order') && (lower.includes('2') || lower.includes('ii'))) return 'Repeat Order Phase 2';
+      if (lower.includes('repeat order') && (lower.includes('3') || lower.includes('iii'))) return 'Repeat Order Phase 3';
+      if (lower.includes('phase i') || lower === 'phase 1' || lower.includes('phase 1') || lower.includes('1st phase')) return 'Phase 1';
+      if (lower.includes('2nd phase') || lower === 'phase 2' || lower.includes('phase 2') || lower.includes('phase ii')) return 'Phase 2';
+      if (lower.includes('3rd phase') || lower === 'phase 3' || lower.includes('phase 3') || lower.includes('phase iii')) return 'Phase 3';
+      if (lower.includes('main road')) return 'Main Road';
+      if (lower.includes('decorative')) return 'Decorative Light';
+      return s;
+    }
+
     // =========================================================================
     // 5. MANUAL CSV UPLOAD HANDLER
     // =========================================================================
@@ -1474,7 +1528,14 @@
           return;
         }
 
-        allRecords = parsed.records;
+        let newRecords = parsed.records;
+        const panelRows = newRecords.filter(r => r.kind === 'panel');
+        if (panelRows.length === 0 && (cachedSurveyedPanels.length > 0 || (window.CACHED_SURVEYED_PANELS && window.CACHED_SURVEYED_PANELS.length > 0))) {
+          const panelsToAdd = cachedSurveyedPanels.length > 0 ? cachedSurveyedPanels : window.CACHED_SURVEYED_PANELS;
+          newRecords = newRecords.concat(panelsToAdd);
+        }
+
+        allRecords = newRecords;
         const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
         await saveDatasetToCache({ fileName: file.name, savedAt: nowStr, isCustomUpload: true, records: allRecords });
 
@@ -1487,7 +1548,9 @@
         buildCityControls();
         buildPhaseAndWardControls();
         applyFilters(true);
-        showToast(`✅ Loaded ${allRecords.length.toLocaleString()} points from ${file.name}`);
+        const lCnt = allRecords.filter(r => r.kind !== 'panel').length;
+        const pCnt = allRecords.filter(r => r.kind === 'panel').length;
+        showToast(`✅ Loaded ${allRecords.length.toLocaleString()} points (${lCnt.toLocaleString()} lights, ${pCnt.toLocaleString()} panels) from ${file.name}`);
       } catch (error) {
         console.error(error);
         showManualUploadPrompt(`Could not read this CSV (${error.message || 'parse error'}). Try saving it as UTF-8 CSV.`);
@@ -1596,7 +1659,7 @@
         const lane = colLane ? String(r[colLane] || '').trim() : 'Lane not specified';
         const panelKey = panel ? `${city}|${panel}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
         const photoUrl = colPhoto ? String(r[colPhoto] || '').trim() : '';
-        const phase = colPhase ? String(r[colPhase] || '').trim() : '';
+        const phase = normalizePhase(colPhase ? String(r[colPhase] || '').trim() : '');
         const ward = colWard ? String(r[colWard] || '').trim() : '';
 
         clean.push({
@@ -1772,6 +1835,16 @@
       byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city="Guwahati">Guwahati (${allRecords.length.toLocaleString()})</button>`;
     }
 
+    const STANDARD_PHASE_ORDER = [
+      'Phase 1',
+      'Phase 2',
+      'Repeat Order Phase 2',
+      'Phase 3',
+      'Main Road',
+      'Repeat Order Phase 3',
+      'Decorative Light'
+    ];
+
     function buildPhaseAndWardControls() {
       const phaseSelect = byId('phaseSelect');
       const wardSelect = byId('wardSelect');
@@ -1793,6 +1866,11 @@
       if (phaseSelect) {
         const currentPhase = phaseSelect.value || 'all';
         const sortedPhases = Array.from(phaseCounts.entries()).sort((a, b) => {
+          const idxA = STANDARD_PHASE_ORDER.indexOf(a[0]);
+          const idxB = STANDARD_PHASE_ORDER.indexOf(b[0]);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
           return a[0].localeCompare(b[0], undefined, { numeric: true });
         });
         let optHtml = `<option value="all">All Phases (${allRecords.length.toLocaleString()})</option>`;
@@ -2378,12 +2456,17 @@
 
       const statusTag = `<span class="status-tag ${r.stState === 'faulty' ? 'bad' : r.stState === 'unknown' ? 'unknown' : ''}">${esc(r.status)}</span>`;
 
+      const meta = r.panelKey ? panelMetaMap.get(r.panelKey) : null;
+      const phaseVal = r.phase || meta?.phase || 'Not specified';
+      const rawWard = r.ward || meta?.ward || '';
+      const wardVal = rawWard ? (rawWard.toLowerCase().includes('ward') ? rawWard : `Ward ${rawWard}`) : 'Not specified';
+
       const fields = [
         ['City', 'Guwahati'],
         ['Road / Lane', r.lane],
         ['Panel', r.panel],
-        r.phase ? ['Phase', r.phase] : null,
-        r.ward ? ['Ward No', r.ward] : null,
+        ['Phase', phaseVal],
+        ['Ward No', wardVal],
         ['Asset Type', r.item],
         ['Status', statusTag],
         r.pole ? ['Pole Type', r.pole] : null,
