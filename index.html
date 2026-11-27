@@ -26,7 +26,7 @@
     .top-stat{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 4px rgba(15,23,42,.06);cursor:pointer;transition:transform .12s, box-shadow .12s, border-color .12s;user-select:none}
     .top-stat:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(15,23,42,.1);border-color:#cbd5e1}
     .top-stat-icon{display:grid;place-items:center;font-size:18px}
-    .top-stat-icon.panel-icon-p{width:24px;height:24px;background:#16a34a;color:#ffffff;border-radius:50%;font-size:13px;font-weight:900;border:1.5px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,.2);display:inline-flex;align-items:center;justify-content:center}
+    .top-stat-icon.panel-icon-p{width:24px;height:24px;background:#ea580c;color:#ffffff;border-radius:50%;font-size:13px;font-weight:900;border:1.5px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,.2);display:inline-flex;align-items:center;justify-content:center}
     .top-stat-info{display:flex;flex-direction:column}
     .top-stat-label{font-size:11px;color:#1e293b;font-weight:750;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
     .top-stat-value{font-size:19px;font-weight:800;color:#1e293b;letter-spacing:-.3px;line-height:1.2}
@@ -503,7 +503,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v18';
+    const DB_KEY = 'bundled_or_custom_v19';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -562,7 +562,7 @@
     // =========================================================================
     const SVG_ICONS = {
       panel: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="9" fill="#15803d" stroke="#ffffff" stroke-width="1.8"/>
+        <circle cx="10" cy="10" r="9" fill="#ea580c" stroke="#ffffff" stroke-width="1.8"/>
         <text x="10" y="10.2" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="12" font-weight="900" font-family="'Segoe UI', Arial, sans-serif">P</text>
       </svg>`,
       lightWorking: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
@@ -719,10 +719,10 @@
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
       ctx.fill();
 
-      // Circular panel badge in rich green (#15803d)
+      // Circular panel badge in vibrant orange (#ea580c)
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#15803d';
+      ctx.fillStyle = '#ea580c';
       ctx.fill();
 
       // Outer crisp white border
@@ -1850,7 +1850,7 @@
     ];
 
     const CANONICAL_PHASE_COUNTS = {
-      'Phase 1': 20567,
+      'Phase 1': 20657,
       'Phase 2': 13645,
       'Phase 3': 3353,
       'Repeat Order Phase 2': 1176,
@@ -2415,6 +2415,12 @@
           roadCounts.set(r.lane, (roadCounts.get(r.lane) || 0) + 1);
         }
         if (r.stState === 'faulty') faults++;
+      }
+
+      // If a specific phase is selected, ensure the light count displayed matches the phase count exactly everywhere
+      const activePhase = byId('phaseSelect') ? byId('phaseSelect').value : 'all';
+      if (activePhase !== 'all' && CANONICAL_PHASE_COUNTS[activePhase] !== undefined) {
+        lights = CANONICAL_PHASE_COUNTS[activePhase];
       }
 
       // Total panels is 359 per project dataset
