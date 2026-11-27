@@ -26,6 +26,7 @@
     .top-stat{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 4px rgba(15,23,42,.06);cursor:pointer;transition:transform .12s, box-shadow .12s, border-color .12s;user-select:none}
     .top-stat:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(15,23,42,.1);border-color:#cbd5e1}
     .top-stat-icon{display:grid;place-items:center;font-size:18px}
+    .top-stat-icon.panel-icon-p{width:24px;height:24px;background:#16a34a;color:#ffffff;border-radius:50%;font-size:13px;font-weight:900;border:1.5px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,.2);display:inline-flex;align-items:center;justify-content:center}
     .top-stat-info{display:flex;flex-direction:column}
     .top-stat-label{font-size:11px;color:#1e293b;font-weight:750;text-transform:uppercase;letter-spacing:.3px;line-height:1.2}
     .top-stat-value{font-size:19px;font-weight:800;color:#1e293b;letter-spacing:-.3px;line-height:1.2}
@@ -53,6 +54,7 @@
       .brand p{font-size:12.5px}
       .top-stat{padding:8px 18px;gap:12px;border-radius:12px}
       .top-stat-icon{font-size:22px}
+      .top-stat-icon.panel-icon-p{width:28px;height:28px;font-size:15px}
       .top-stat-label{font-size:11.5px}
       .top-stat-value{font-size:21px}
       .btn{height:42px;padding:0 16px;font-size:14px;border-radius:10px}
@@ -304,6 +306,7 @@
       .brand p{display:none}
       .top-stat{padding:4px 8px;gap:6px;border-radius:8px}
       .top-stat-icon{font-size:15px}
+      .top-stat-icon.panel-icon-p{width:20px;height:20px;font-size:11px}
       .top-stat-label{font-size:9px}
       .top-stat-value{font-size:13.5px}
       .top-actions{gap:4px;margin-left:auto;width:auto}
@@ -351,7 +354,7 @@
             </div>
           </div>
           <div class="top-stat" title="Total CCMS control panels">
-            <span class="top-stat-icon">⚡</span>
+            <span class="top-stat-icon panel-icon-p">P</span>
             <div class="top-stat-info">
               <span class="top-stat-label">Panels</span>
               <strong class="top-stat-value" id="topStatPanels">360</strong>
@@ -487,7 +490,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v13';
+    const DB_KEY = 'bundled_or_custom_v14';
 
     function openLocalDB() {
       return new Promise((resolve, reject) => {
@@ -536,7 +539,7 @@
     const SVG_ICONS = {
       panel: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="10" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
-        <polygon points="12.8,4.5 7.5,11.5 11.5,11.5 10.5,18.5 16.5,10.5 12.5,10.5" fill="#ffffff"/>
+        <text x="12" y="12.2" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="13" font-weight="900" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">P</text>
       </svg>`,
       lightWorking: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
         <path d="M12 28C12 28 3 17.5 3 10.5C3 5.8 7 2 12 2C17 2 21 5.8 21 10.5C21 17.5 12 28 12 28Z" fill="#ffa705" stroke="#ffffff" stroke-width="1.8"/>
@@ -699,17 +702,12 @@
       ctx.lineWidth = 0.8;
       ctx.stroke();
 
-      // Centered white lightning bolt
-      ctx.beginPath();
-      ctx.moveTo(12.8, 4.5);
-      ctx.lineTo(7.5, 11.5);
-      ctx.lineTo(11.5, 11.5);
-      ctx.lineTo(10.5, 18.5);
-      ctx.lineTo(16.5, 10.5);
-      ctx.lineTo(12.5, 10.5);
-      ctx.closePath();
+      // Centered white bold "P"
       ctx.fillStyle = '#ffffff';
-      ctx.fill();
+      ctx.font = '900 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('P', 12, 12.2);
 
       return c;
     }
@@ -809,12 +807,17 @@
         }
         allRecords = cached.records;
         byId('uploadOverlay').classList.add('hidden');
-        updateCacheIndicator(cached.fileName, allRecords.length, cached.savedAt);
+        updateCacheIndicator(cached.fileName, allRecords.length, cached.savedAt, !!cached.isCustomUpload);
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
         applyFilters(true);
+
+        // If this device holds a custom uploaded CSV, preserve it across page reloads!
+        if (cached.isCustomUpload) {
+          return;
+        }
       }
 
       if (location.protocol === 'file:') {
@@ -887,7 +890,7 @@
 
         byId('uploadOverlay').classList.add('hidden');
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
-        updateCacheIndicator('data.csv (Shared)', allRecords.length, nowStr);
+        updateCacheIndicator('data.csv (Shared)', allRecords.length, nowStr, false);
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
@@ -937,7 +940,7 @@
         });
         byId('uploadOverlay').classList.add('hidden');
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = location.protocol === 'file:' ? 'none' : 'inline-flex';
-        updateCacheIndicator('Included survey data', allRecords.length, nowStr);
+        updateCacheIndicator('Included survey data', allRecords.length, nowStr, false);
         resetAllFilters(false);
         buildSearchCatalog();
         buildCityControls();
@@ -1182,13 +1185,23 @@
       if (byId('closeSidebarBtn')) byId('closeSidebarBtn').addEventListener('click', toggleDashboardPanels);
       if (byId('sidebarBackdrop')) byId('sidebarBackdrop').addEventListener('click', toggleDashboardPanels);
       if (byId('refreshBtn')) {
-        byId('refreshBtn').addEventListener('click', () => {
+        byId('refreshBtn').addEventListener('click', async () => {
           resetAllFilters(false);
-          showToast('↻ Reset all filters and reloading…');
-          if (location.protocol === 'file:') {
-            window.location.reload();
+          const currentCache = await loadDatasetFromCache();
+          if (currentCache && currentCache.isCustomUpload && Array.isArray(currentCache.records) && currentCache.records.length > 0) {
+            allRecords = currentCache.records;
+            updateCacheIndicator(currentCache.fileName, allRecords.length, currentCache.savedAt, true);
+            buildSearchCatalog();
+            buildCityControls();
+            applyFilters(true);
+            showToast(`↻ Reset filters & refreshed ${currentCache.fileName} (${allRecords.length.toLocaleString()} points)`);
           } else {
-            fetchAndLoadBundledCsv(null);
+            showToast('↻ Reset all filters and reloading…');
+            if (location.protocol === 'file:') {
+              window.location.reload();
+            } else {
+              fetchAndLoadBundledCsv(null);
+            }
           }
         });
       }
@@ -1241,7 +1254,7 @@
         } else {
           activeLegendFilter = key;
           const msgMap = {
-            'panel': '⚡ Showing all CCMS Panels',
+            'panel': '🅿️ Showing all CCMS Panels',
             'light': '💡 Showing street lights',
             'single-decorative': '● Showing Single-Decorative lights',
             'double-decorative': '● Showing Double-Decorative lights',
@@ -1267,7 +1280,7 @@
       if (topPanels) {
         topPanels.closest('.top-stat').addEventListener('click', () => {
           activeLegendFilter = activeLegendFilter === 'panel' ? '' : 'panel';
-          showToast(activeLegendFilter === 'panel' ? '⚡ Showing all CCMS Panels' : 'Showing all map assets');
+          showToast(activeLegendFilter === 'panel' ? '🅿️ Showing all CCMS Panels' : 'Showing all map assets');
           clearActiveCircuit(false);
           applyFilters(true);
         });
@@ -1414,7 +1427,7 @@
 
         byId('uploadOverlay').classList.add('hidden');
         if (byId('reloadSharedBtn')) byId('reloadSharedBtn').style.display = 'inline-flex';
-        updateCacheIndicator(file.name, allRecords.length, nowStr);
+        updateCacheIndicator(file.name, allRecords.length, nowStr, true);
         clearActiveCircuit(false);
         resetAllFilters(false);
         buildSearchCatalog();
@@ -1667,10 +1680,24 @@
       showToast('TV presentation link copied. Host data.csv with the app to share updates.');
     }
 
-    function updateCacheIndicator(fileName, count, savedAt) {
+    function updateCacheIndicator(fileName, count, savedAt, isCustom = false) {
       if (byId('cacheDot')) byId('cacheDot').classList.add('ready');
       if (byId('cacheText')) byId('cacheText').textContent = `${count.toLocaleString()} assets`;
-      if (byId('fileMetaLabel')) byId('fileMetaLabel').textContent = `${fileName} · Updated ${savedAt}`;
+      const meta = byId('fileMetaLabel');
+      if (meta) {
+        if (isCustom) {
+          meta.innerHTML = `${esc(fileName)} <span style="display:inline-block;padding:1px 6px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;border-radius:4px;margin-left:4px;">Custom Upload</span> · Updated ${savedAt} · <button type="button" id="restoreSharedBtn" style="background:none;border:none;padding:0;color:#0284c7;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;">Restore Shared CSV</button>`;
+          const resetBtn = byId('restoreSharedBtn');
+          if (resetBtn) {
+            resetBtn.onclick = async () => {
+              showToast('🔄 Switching to shared data.csv…');
+              await fetchAndLoadBundledCsv(null);
+            };
+          }
+        } else {
+          meta.textContent = `${fileName} · Updated ${savedAt}`;
+        }
+      }
       if (byId('tvAssetCount')) byId('tvAssetCount').textContent = `${count.toLocaleString()} mapped assets · ${savedAt}`;
     }
 
