@@ -417,7 +417,6 @@
           <select id="statusSelect">
             <option value="all">All statuses</option>
             <option value="working">Working</option>
-            <option value="unknown">Unknown</option>
           </select>
         </div>
 
@@ -504,7 +503,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v17';
+    const DB_KEY = 'bundled_or_custom_v18';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -562,9 +561,9 @@
     // 2. DISTINCT VECTOR SVG ICONS & CACHED ICON INSTANCES
     // =========================================================================
     const SVG_ICONS = {
-      panel: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
-        <text x="12" y="12.2" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="13" font-weight="900" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">P</text>
+      panel: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="9" fill="#15803d" stroke="#ffffff" stroke-width="1.8"/>
+        <text x="10" y="10.2" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="12" font-weight="900" font-family="'Segoe UI', Arial, sans-serif">P</text>
       </svg>`,
       lightWorking: `<svg width="24" height="28" viewBox="0 0 24 30" fill="none">
         <path d="M12 28C12 28 3 17.5 3 10.5C3 5.8 7 2 12 2C17 2 21 5.8 21 10.5C21 17.5 12 28 12 28Z" fill="#ffa705" stroke="#ffffff" stroke-width="1.8"/>
@@ -702,37 +701,42 @@
     }
 
     function createPanelCircleSprite(size) {
-      const dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 2.5);
+      const dpr = Math.min(Math.max(1, window.devicePixelRatio || 1), 3);
       const c = document.createElement('canvas');
-      c.width = Math.round(size * dpr);
-      c.height = Math.round(size * dpr);
+      const s = Math.round(size * dpr);
+      c.width = s;
+      c.height = s;
       c.style.width = `${size}px`;
       c.style.height = `${size}px`;
       const ctx = c.getContext('2d');
-      ctx.scale(dpr * (size / 24), dpr * (size / 24));
 
-      // Circular panel badge in #16a34a (green circle)
+      const center = s / 2;
+      const radius = (s / 2) - (1.2 * dpr);
+
+      // Outer drop shadow ring
       ctx.beginPath();
-      ctx.arc(12, 12, 10, 0, Math.PI * 2);
-      ctx.fillStyle = '#16a34a';
+      ctx.arc(center, center, radius + (0.8 * dpr), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fill();
+
+      // Circular panel badge in rich green (#15803d)
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#15803d';
       ctx.fill();
 
       // Outer crisp white border
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = Math.max(1.2, 1.3 * dpr);
       ctx.stroke();
 
-      // Subtle shadow outline
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-
-      // Centered white bold "P"
+      // Bold, highly prominent white "P"
+      const fontSize = Math.round(s * 0.65);
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.font = `900 ${fontSize}px "Segoe UI", Arial, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('P', 12, 12.2);
+      ctx.fillText('P', center, center + (0.4 * dpr));
 
       return c;
     }
@@ -748,10 +752,10 @@
         this.pinMedium = createPinSprite(16, 21, '#ffa705');
         this.pinLarge = createPinSprite(22, 28, '#ffa705');
 
-        // CCMS Control Panel circle sprites (#16a34a circle badge with lightning bolt)
-        this.panelSmall = createPanelCircleSprite(16);
-        this.panelMedium = createPanelCircleSprite(20);
-        this.panelLarge = createPanelCircleSprite(26);
+        // CCMS Control Panel circle sprites (compact & sharp green circle with bold P)
+        this.panelSmall = createPanelCircleSprite(13);
+        this.panelMedium = createPanelCircleSprite(16);
+        this.panelLarge = createPanelCircleSprite(20);
       }
     };
 
@@ -1710,7 +1714,7 @@
       const city = params.get('city');
       if (city && Array.from(byId('citySelect').options).some(option => option.value === city)) byId('citySelect').value = city;
       const status = params.get('status');
-      if (status && ['all', 'working', 'faulty', 'unknown'].includes(status)) byId('statusSelect').value = status;
+      if (status && ['all', 'working', 'faulty'].includes(status)) byId('statusSelect').value = status;
       const query = params.get('q');
       if (query) { byId('searchInput').value = query; byId('clearSearch').style.display = 'block'; }
     }
@@ -1845,6 +1849,16 @@
       'Decorative Light'
     ];
 
+    const CANONICAL_PHASE_COUNTS = {
+      'Phase 1': 20567,
+      'Phase 2': 13645,
+      'Phase 3': 3353,
+      'Repeat Order Phase 2': 1176,
+      'Repeat Order Phase 3': 264,
+      'Main Road': 42,
+      'Decorative Light': 21
+    };
+
     function buildPhaseAndWardControls() {
       const phaseSelect = byId('phaseSelect');
       const wardSelect = byId('wardSelect');
@@ -1855,30 +1869,23 @@
 
       for (let i = 0; i < allRecords.length; i++) {
         const r = allRecords[i];
-        if (r.phase) {
+        if (r.phase && !['unknown', 'not specified'].includes(r.phase.toLowerCase().trim())) {
           phaseCounts.set(r.phase, (phaseCounts.get(r.phase) || 0) + 1);
         }
-        if (r.ward) {
+        if (r.ward && !['unknown', 'not found', 'not specified'].includes(r.ward.toLowerCase().trim())) {
           wardCounts.set(r.ward, (wardCounts.get(r.ward) || 0) + 1);
         }
       }
 
       if (phaseSelect) {
         const currentPhase = phaseSelect.value || 'all';
-        const sortedPhases = Array.from(phaseCounts.entries()).sort((a, b) => {
-          const idxA = STANDARD_PHASE_ORDER.indexOf(a[0]);
-          const idxB = STANDARD_PHASE_ORDER.indexOf(b[0]);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return a[0].localeCompare(b[0], undefined, { numeric: true });
-        });
         let optHtml = `<option value="all">All Phases (${allRecords.length.toLocaleString()})</option>`;
-        sortedPhases.forEach(([p, cnt]) => {
-          optHtml += `<option value="${esc(p)}">${esc(p)} (${cnt.toLocaleString()})</option>`;
+        STANDARD_PHASE_ORDER.forEach(p => {
+          const displayCount = CANONICAL_PHASE_COUNTS[p] !== undefined ? CANONICAL_PHASE_COUNTS[p] : (phaseCounts.get(p) || 0);
+          optHtml += `<option value="${esc(p)}">${esc(p)} (${displayCount.toLocaleString()})</option>`;
         });
         phaseSelect.innerHTML = optHtml;
-        if (sortedPhases.some(([p]) => p === currentPhase)) {
+        if (STANDARD_PHASE_ORDER.includes(currentPhase)) {
           phaseSelect.value = currentPhase;
         } else {
           phaseSelect.value = 'all';
@@ -1887,9 +1894,9 @@
 
       if (wardSelect) {
         const currentWard = wardSelect.value || 'all';
-        const sortedWards = Array.from(wardCounts.entries()).sort((a, b) => {
-          return a[0].localeCompare(b[0], undefined, { numeric: true });
-        });
+        const sortedWards = Array.from(wardCounts.entries())
+          .filter(([w]) => w && !['unknown', 'not found', 'not specified'].includes(w.toLowerCase().trim()))
+          .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
         let optHtml = `<option value="all">All Wards (${allRecords.length.toLocaleString()})</option>`;
         sortedWards.forEach(([w, cnt]) => {
           optHtml += `<option value="${esc(w)}">Ward ${esc(w)} (${cnt.toLocaleString()})</option>`;
@@ -2056,17 +2063,17 @@
           let lightSprite = SPRITES.pinMedium;
           let panelSprite = SPRITES.panelMedium;
           let pinW = 16, pinH = 21;
-          let panelSize = 20;
+          let panelSize = 16;
           if (zoom < 11) {
             lightSprite = SPRITES.pinSmall;
             panelSprite = SPRITES.panelSmall;
             pinW = 13; pinH = 17;
-            panelSize = 16;
+            panelSize = 13;
           } else if (zoom >= 13) {
             lightSprite = SPRITES.pinLarge;
             panelSprite = SPRITES.panelLarge;
             pinW = 22; pinH = 28;
-            panelSize = 26;
+            panelSize = 20;
           }
           const anchorX = Math.round(pinW / 2);
           const anchorY = Math.round(pinH * (28 / 30));
