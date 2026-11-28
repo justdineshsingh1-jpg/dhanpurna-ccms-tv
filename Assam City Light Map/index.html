@@ -92,6 +92,7 @@
       align-items: center;
       gap: 10px;
       margin-left: auto;
+      flex-wrap: nowrap;
     }
 
     /* Header Stat Pills */
@@ -150,19 +151,22 @@
 
     .btn {
       height: 38px;
-      padding: 0 13px;
+      padding: 0 14px;
       border-radius: 9px;
       font-weight: 650;
-      font-size: 12.5px;
+      font-size: 13px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       border: 1px solid var(--line);
       background: var(--paper);
       color: var(--ink);
       transition: all .15s ease;
       white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.2;
     }
     .btn:hover {
       background: #f1f5f9;
@@ -177,6 +181,10 @@
       background: var(--blue-hover);
       border-color: var(--blue-hover);
     }
+    #uploadCsvBtn {
+      white-space: nowrap;
+      min-width: 105px;
+    }
 
     /* Workspace Layout */
     .workspace {
@@ -184,6 +192,18 @@
       display: grid;
       grid-template-columns: 360px minmax(0, 1fr);
       position: relative;
+    }
+    .dashboard-hidden .workspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dashboard-hidden .sidebar {
+      display: none;
+    }
+    .sidebar-backdrop {
+      display: none;
+    }
+    .mobile-sidebar-header {
+      display: none;
     }
     .sidebar {
       background: var(--paper);
@@ -236,83 +256,117 @@
       letter-spacing: 0.3px;
     }
 
-    /* Search Box Container with Voice Assistant */
-    .search-box-wrap {
-      position: relative;
-    }
-    .search-input-inner {
-      position: relative;
+    /* Floating Map Controls & Search Assistant */
+    .basemap-control {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 650;
       display: flex;
       align-items: center;
+      background: rgba(255, 255, 255, .97);
+      border: 1px solid rgba(0, 0, 0, .12);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, .15);
+      border-radius: 6px;
+      padding: 3px;
     }
-    .search-input-inner .search-icon {
+    .map-layer-btn {
+      min-width: 68px;
+      height: 32px;
+      padding: 0 11px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s, color .12s;
+    }
+    .map-layer-btn[aria-pressed="true"], .map-layer-btn.active {
+      background: #e8f2ff;
+      color: #0b57d0;
+      font-weight: 700;
+    }
+    .map-layer-btn:focus-visible { outline: 2px solid #0d6efd; outline-offset: 1px; }
+
+    .map-search-control {
       position: absolute;
-      left: 12px;
-      width: 17px;
-      height: 17px;
-      color: #94a3b8;
-      pointer-events: none;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 650;
+      width: min(540px, calc(100% - 210px));
     }
-    .search {
+    .search-wrap {
+      position: relative;
+    }
+    .map-search-control .search {
       width: 100%;
       height: 42px;
-      border: 1.5px solid #cbd5e1;
+      border: 1px solid #e2e8f0;
       border-radius: 10px;
-      padding: 0 74px 0 36px;
-      font-size: 13.5px;
+      padding: 0 74px 0 42px;
+      font-size: 14px;
       outline: none;
-      background: var(--paper);
-      color: var(--ink);
+      background: rgba(255, 255, 255, .98);
+      color: #0f172a;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, .14);
       transition: border-color .15s, box-shadow .15s;
     }
-    .search:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3.5px rgba(2, 132, 199, .15);
+    .map-search-control .search:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, .2), 0 2px 10px rgba(15, 23, 42, .14);
     }
-    .search-btn-group {
+    .map-search-control .search-icon {
       position: absolute;
-      right: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      left: 14px;
+      top: 12px;
+      width: 18px;
+      height: 18px;
+      color: #64748b;
+      pointer-events: none;
     }
-    .clear-search {
-      width: 26px;
-      height: 26px;
+    .map-search-control .clear-search {
+      position: absolute;
+      right: 40px;
+      top: 7px;
+      width: 28px;
+      height: 28px;
       border: 0;
       background: transparent;
-      color: #94a3b8;
+      color: #64748b;
       cursor: pointer;
       display: none;
       font-size: 18px;
-      line-height: 1;
-      border-radius: 6px;
+      border-radius: 5px;
       align-items: center;
       justify-content: center;
+      line-height: 1;
     }
-    .clear-search:hover {
+    .map-search-control .clear-search:hover {
       background: #f1f5f9;
       color: #0f172a;
     }
-
-    /* Voice Search Button & Animations */
-    .voice-search-btn {
+    .map-search-control .voice-search-btn {
+      position: absolute;
+      top: 5px;
+      right: 6px;
       width: 32px;
       height: 32px;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background: #f1f5f9;
+      border-radius: 50%;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
       color: #475569;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all .2s ease;
-      position: relative;
+      z-index: 5;
     }
-    .voice-search-btn:hover {
+    .map-search-control .voice-search-btn:hover {
       background: #e2e8f0;
       color: #0f172a;
       transform: scale(1.05);
@@ -320,9 +374,17 @@
     .voice-search-btn.listening {
       background: #dc2626 !important;
       color: #ffffff !important;
-      animation: micPulse 1.2s infinite alternate;
       border-color: #b91c1c;
       box-shadow: 0 0 12px rgba(220, 38, 38, .6);
+      animation: micPulse 1.4s infinite;
+    }
+    .voice-search-btn.listening .mic-pulse {
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid #ef4444;
+      animation: rippleWave 1.4s infinite cubic-bezier(0, .2, .8, 1);
+      pointer-events: none;
     }
     .voice-search-btn.processing {
       background: #0284c7 !important;
@@ -338,24 +400,37 @@
       color: #ffffff !important;
     }
     @keyframes micPulse {
-      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .6); }
-      70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
-      100% { transform: scale(1.1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+    @keyframes rippleWave {
+      0% { transform: scale(.9); opacity: 1; }
+      100% { transform: scale(1.7); opacity: 0; }
     }
     @keyframes micRotate {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
 
-    /* Voice Feedback Floating Card */
+    /* Voice Feedback Floating Popover Card */
     .voice-card {
-      margin-top: 8px;
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-      border: 1.5px solid #cbd5e1;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, .98);
+      backdrop-filter: blur(8px);
+      border: 1px solid #cbd5e1;
       border-radius: 12px;
       padding: 12px 14px;
-      box-shadow: var(--shadow-md);
-      transition: all .2s ease;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, .2), 0 8px 10px -6px rgba(15, 23, 42, .1);
+      z-index: 680;
+      transition: all .25s ease;
+      animation: slideDown .25s ease-out;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .voice-card.hidden { display: none; }
     .voice-card-header {
@@ -387,9 +462,9 @@
       gap: 5px;
     }
     .voice-tool-btn {
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 11.5px;
       font-weight: 700;
       border: 1px solid #cbd5e1;
       background: #f8fafc;
@@ -402,16 +477,16 @@
       border: 0;
       background: transparent;
       color: #94a3b8;
-      font-size: 16px;
+      font-size: 17px;
       cursor: pointer;
       line-height: 1;
-      padding: 2px 5px;
+      padding: 2px 6px;
       border-radius: 4px;
     }
     .voice-close-btn:hover { background: #e2e8f0; color: #0f172a; }
 
     .voice-card-body {
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       color: #0f172a;
       line-height: 1.45;
@@ -420,6 +495,17 @@
       font-size: 11px;
       color: #64748b;
       margin-top: 4px;
+    }
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* Auto-Complete Dropdown */
@@ -432,7 +518,7 @@
       background: #fff;
       border: 1px solid rgba(0,0,0,.15);
       border-radius: 10px;
-      box-shadow: var(--shadow-lg);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
       max-height: 290px;
       overflow-y: auto;
       display: none;
@@ -720,7 +806,7 @@
     .road-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 550; }
     .road-count { border-radius: 10px; padding: 2px 7px; background: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 750; }
 
-    /* Map Viewport & Controls */
+    /* Map Viewport */
     .map-wrap {
       position: relative;
       min-width: 0;
@@ -728,32 +814,6 @@
       background: #e2e8f0;
     }
     #map { position: absolute; inset: 0; }
-
-    .basemap-control {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      z-index: 650;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, .96);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow-md);
-      border-radius: 10px;
-      padding: 6px 12px;
-    }
-    .basemap-control label { font-size: 11px; font-weight: 750; color: #475569; }
-    .basemap-select {
-      height: 30px;
-      border: 0;
-      background: transparent;
-      font-size: 12.5px;
-      font-weight: 700;
-      outline: none;
-      cursor: pointer;
-      color: #0f172a;
-    }
 
     .map-toast {
       position: absolute;
@@ -913,17 +973,148 @@
     .popup-btn:hover { filter: brightness(.96); }
 
     /* Responsive & Mobile Layout */
-    @media (max-width: 860px) {
-      .topbar { padding: 8px 12px; }
+    @media (max-width: 900px) {
+      .topbar { gap: 8px; padding: 8px 12px; flex-wrap: wrap; }
       .brand p { display: none; }
-      .top-stats .top-stat:last-child { display: none; }
-      .workspace { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-      .sidebar { max-height: 48dvh; border-right: 0; border-bottom: 1px solid var(--line); }
-      .basemap-control { top: 8px; right: 8px; }
+      .top-actions { gap: 6px; }
+      .btn { min-height: 36px; padding: 0 10px; font-size: 12px; }
+      .brand h1 { font-size: 14px; }
+    }
+    @media (max-width: 768px) {
+      .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, .45);
+        backdrop-filter: blur(2px);
+        z-index: 750;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s ease;
+      }
+      body:not(.dashboard-hidden) .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .workspace {
+        position: relative;
+        display: block;
+        height: 100%;
+        overflow: hidden;
+      }
+      .map-wrap {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .sidebar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        max-height: 85dvh;
+        height: auto;
+        z-index: 800;
+        background: var(--paper);
+        border-top: 1px solid var(--line);
+        border-right: 0;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -6px 28px rgba(15, 23, 42, .22);
+        padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+        transform: translateY(100%);
+        transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex !important;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      body:not(.dashboard-hidden) .sidebar {
+        transform: translateY(0);
+      }
+      .mobile-sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .mobile-sidebar-title { font-size: 14px; font-weight: 750; color: #1e293b; }
+      .mobile-sidebar-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        border: 0;
+        color: #475569;
+        font-size: 16px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .mobile-sidebar-close:active { background: #e2e8f0; }
+
+      /* Mobile Topbar */
+      .topbar { min-height: 52px; padding: 6px 12px; gap: 8px; align-items: center; }
+      .brand-mark { width: 32px; height: 32px; }
+      .brand h1 { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 145px; }
+      .brand p { display: none; }
+      .top-stat { padding: 4px 8px; gap: 6px; border-radius: 8px; min-height: 32px; }
+      .top-stat-icon { font-size: 15px; }
+      .top-stat-icon.panel-icon-p { width: 20px; height: 20px; font-size: 11px; }
+      .top-stat-label { font-size: 9px; }
+      .top-stat-value { font-size: 13.5px; }
+      .top-actions { gap: 4px; margin-left: auto; width: auto; }
+      .top-actions .btn { min-height: 34px; height: 34px; padding: 0 9px; font-size: 11.5px; }
+      #fullscreenBtn, #uploadCsvBtn { display: none !important; }
+
+      /* Mobile Floating Map Controls */
+      .map-search-control {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: none;
+        transform: none;
+      }
+      .map-search-control .search {
+        height: 40px;
+        font-size: 13px;
+        padding: 0 68px 0 38px;
+      }
+      .map-search-control .clear-search {
+        right: 36px;
+        top: 6px;
+      }
+      .map-search-control .voice-search-btn {
+        right: 4px;
+        top: 4px;
+      }
+      .basemap-control {
+        top: 58px;
+        left: 10px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+      }
+      .map-layer-btn {
+        min-width: 58px;
+        height: 28px;
+        font-size: 12px;
+        padding: 0 8px;
+      }
+      .map-toast {
+        top: 96px;
+        font-size: 11.5px;
+        max-width: 92%;
+      }
+      .map-note {
+        display: none;
+      }
     }
   </style>
 </head>
-<body>
+<body class="dashboard-hidden">
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -954,26 +1145,25 @@
               <strong class="top-stat-value" id="topStatPanels">118</strong>
             </div>
           </div>
-          <div class="top-stat" title="Not working / faulty lights">
-            <span class="top-stat-icon">⚠️</span>
-            <div class="top-stat-info">
-              <span class="top-stat-label">Not Working</span>
-              <strong class="top-stat-value red" id="topStatFaults">364</strong>
-            </div>
-          </div>
         </div>
 
         <button class="btn" id="refreshBtn" type="button" title="Reload data and map view">↻ Refresh</button>
         <button class="btn" id="fullscreenBtn" type="button" title="Toggle Fullscreen on 80-inch TV">⛶ Fullscreen</button>
+        <button class="btn" id="toggleDashboardBtn" type="button" aria-expanded="false" title="Show or hide filters and stats sidebar">Filters</button>
         <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
-        <button class="btn btn-primary" type="button" onclick="document.getElementById('csvFileInput').click()" title="Upload a custom survey CSV">
-          ↑ Upload CSV
+        <button class="btn btn-primary" id="uploadCsvBtn" type="button" onclick="document.getElementById('csvFileInput').click()" title="Upload a custom survey CSV">
+          ↑ Replace CSV
         </button>
       </div>
     </header>
 
     <main class="workspace">
+      <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
       <aside class="sidebar" id="sidebarPane">
+        <div class="mobile-sidebar-header">
+          <div class="mobile-sidebar-title">⚡ Control &amp; Filters</div>
+          <button type="button" class="mobile-sidebar-close" id="closeSidebarBtn" aria-label="Close filters">✕</button>
+        </div>
         <div class="stats">
           <div class="stat"><span class="stat-label">Filtered Assets</span><strong class="stat-value" id="statAssets">9,919</strong></div>
           <div class="stat"><span class="stat-label">Total Lights</span><strong class="stat-value" id="statLights">9,512</strong></div>
@@ -987,43 +1177,6 @@
             <div id="circuitBannerSub" style="font-size:11px;margin-top:2px;">Showing connected bye-lanes</div>
           </div>
           <button type="button" class="circuit-reset" id="clearCircuitBtn">Clear</button>
-        </div>
-
-        <!-- Search with Voice Assistant -->
-        <label class="field-label" for="searchInput">Search City, Panel or Road</label>
-        <div class="search-box-wrap" id="searchBoxContainer">
-          <div class="search-input-inner">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input class="search" id="searchInput" type="text" placeholder="Search city, panel, road... (Ctrl+Shift+V)" autocomplete="off">
-            <div class="search-btn-group">
-              <button class="clear-search" id="clearSearch" type="button" title="Clear search">×</button>
-              <button class="voice-search-btn" id="voiceSearchBtn" type="button" title="Voice Search (Ctrl+Shift+V)" aria-label="Voice search">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="22"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
-
-          <!-- Voice Assistant Feedback Card -->
-          <div class="voice-card hidden" id="voiceCard" role="status" aria-live="polite">
-            <div class="voice-card-header">
-              <span class="voice-status-badge idle" id="voiceStatusBadge">🎤 Idle</span>
-              <div class="voice-tools">
-                <button class="voice-tool-btn" id="voiceMuteToggle" type="button" title="Voice Feedback: Enabled (Click to mute)">🔊</button>
-                <button class="voice-tool-btn" id="voiceLangToggle" type="button" title="Switch Voice Language">🇮🇳 EN</button>
-                <button class="voice-close-btn" id="voiceCloseBtn" type="button" title="Close voice card">×</button>
-              </div>
-            </div>
-            <div class="voice-card-body" id="voiceAnswerBody">Click the microphone to search hands-free.</div>
-            <div class="voice-subtext" id="voiceSubtext">Examples: "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"</div>
-          </div>
         </div>
 
         <!-- City Filter & Quick Chips -->
@@ -1062,7 +1215,7 @@
         </div>
         <div class="road-search-box">
           <input type="text" class="road-search-input" id="roadSearchInput" placeholder="Filter road / bye-lane...">
-          <button type="button" class="road-search-clear" id="clearRoadSearch" title="Clear">×</button>
+          <button type="button" class="road-search-clear" id="clearRoadSearch" title="Clear">✕</button>
         </div>
         <div class="road-list" id="roadList"></div>
       </aside>
@@ -1070,14 +1223,50 @@
       <section class="map-wrap">
         <div id="map"></div>
 
-        <div class="basemap-control">
-          <label for="mapMode">Map Layer</label>
-          <select class="basemap-select" id="mapMode">
-            <option value="googleStreet">Google Maps · Street</option>
-            <option value="googleSatellite">Google Maps · Satellite</option>
-            <option value="osm">OpenStreetMap · Street</option>
-          </select>
+        <!-- Floating Basemap Mode Switcher: Top-Left Pill -->
+        <div class="basemap-control" role="group" aria-label="Map view">
+          <button class="map-layer-btn active" type="button" data-map-layer="googleStreet" aria-pressed="true">Map</button>
+          <button class="map-layer-btn" type="button" data-map-layer="googleSatellite" aria-pressed="false">Satellite</button>
         </div>
+
+        <!-- Floating Search & Voice Assistant: Top-Center -->
+        <div class="map-search-control">
+          <label class="visually-hidden" for="searchInput">Search city, panel, road, or location</label>
+          <div class="search-wrap" id="searchBoxContainer">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input class="search" id="searchInput" type="text" placeholder="Search city, panel, road or location..." autocomplete="off">
+            <button class="clear-search" id="clearSearch" type="button" aria-label="Clear search input">×</button>
+            <button class="voice-search-btn" id="voiceSearchBtn" type="button" title="Voice Search (Ctrl+Shift+V)" aria-label="Voice search">
+              <span class="mic-pulse" aria-hidden="true"></span>
+              <svg class="mic-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
+
+          <!-- Voice Assistant Feedback Card -->
+          <div class="voice-card hidden" id="voiceCard" role="status" aria-live="polite">
+            <div class="voice-card-header">
+              <span class="voice-status-badge idle" id="voiceStatusBadge">🎤 Idle</span>
+              <div class="voice-tools">
+                <button class="voice-tool-btn" id="voiceMuteToggle" type="button" title="Voice Feedback: Enabled (Click to mute)">🔊</button>
+                <button class="voice-tool-btn" id="voiceLangToggle" type="button" title="Switch Voice Language">🇮🇳 EN</button>
+                <button class="voice-close-btn" id="voiceCloseBtn" type="button" title="Close voice card">✕</button>
+              </div>
+            </div>
+            <div class="voice-card-body" id="voiceAnswerBody">Click the microphone to search hands-free.</div>
+            <div class="voice-subtext" id="voiceSubtext">Examples: "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"</div>
+          </div>
+        </div>
+
+        <div class="map-toast hidden" id="mapToast"></div>
+        <div class="map-note">💡 Click any <b>Green Panel</b> to trace circuit &amp; illuminate connected lights</div>
 
         <div class="map-toast hidden" id="mapToast"></div>
         <div class="map-note">💡 Click any <b>Green Panel</b> to trace circuit &amp; illuminate connected lights</div>
@@ -1281,6 +1470,18 @@
       bindEvents();
       setupVoiceSearch();
 
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('dashboard') === 'visible') {
+        document.body.classList.remove('dashboard-hidden');
+      } else {
+        document.body.classList.add('dashboard-hidden');
+      }
+      if (byId('toggleDashboardBtn')) {
+        const isHidden = document.body.classList.contains('dashboard-hidden');
+        byId('toggleDashboardBtn').textContent = isHidden ? 'Filters' : 'Hide Filters';
+        byId('toggleDashboardBtn').setAttribute('aria-expanded', String(!isHidden));
+      }
+
       const cached = await loadDatasetFromCache();
       if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
         allRecords = cached.records;
@@ -1435,6 +1636,33 @@
       map.on('click', () => {
         if (activePanelKey) clearActiveCircuit(true);
       });
+
+      updateBasemapButtons();
+    }
+
+    function setBasemap(key) {
+      if (!baseLayers[key] || key === currentBaseKey) return;
+      if (baseLayers[currentBaseKey]) map.removeLayer(baseLayers[currentBaseKey]);
+      map.addLayer(baseLayers[key]);
+      currentBaseKey = key;
+      updateBasemapButtons();
+    }
+
+    function updateBasemapButtons() {
+      document.querySelectorAll('[data-map-layer]').forEach(button => {
+        const selected = button.dataset.mapLayer === currentBaseKey;
+        button.setAttribute('aria-pressed', String(selected));
+        button.classList.toggle('active', selected);
+      });
+    }
+
+    function toggleDashboardPanels() {
+      const hidden = document.body.classList.toggle('dashboard-hidden');
+      if (byId('toggleDashboardBtn')) {
+        byId('toggleDashboardBtn').textContent = hidden ? 'Filters' : 'Hide Filters';
+        byId('toggleDashboardBtn').setAttribute('aria-expanded', String(!hidden));
+      }
+      setTimeout(() => map && map.invalidateSize({ animate: false }), 120);
     }
 
     // =========================================================================
@@ -1710,6 +1938,10 @@
         clearActiveCircuit(false);
         applyFilters(true);
         showToast(`🛣️ Located ${val}`);
+      }
+
+      if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+        toggleDashboardPanels();
       }
     }
 
@@ -2367,13 +2599,14 @@
         byId('fullscreenBtn').textContent = document.fullscreenElement ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
       });
 
-      // Map Mode Switcher
-      byId('mapMode').addEventListener('change', () => {
-        const nextKey = byId('mapMode').value;
-        if (baseLayers[currentBaseKey]) map.removeLayer(baseLayers[currentBaseKey]);
-        baseLayers[nextKey].addTo(map);
-        currentBaseKey = nextKey;
+      // Map Mode Switcher (Pill segmented buttons)
+      document.querySelectorAll('[data-map-layer]').forEach(button => {
+        button.addEventListener('click', () => setBasemap(button.dataset.mapLayer));
       });
+
+      if (byId('toggleDashboardBtn')) byId('toggleDashboardBtn').addEventListener('click', toggleDashboardPanels);
+      if (byId('closeSidebarBtn')) byId('closeSidebarBtn').addEventListener('click', toggleDashboardPanels);
+      if (byId('sidebarBackdrop')) byId('sidebarBackdrop').addEventListener('click', toggleDashboardPanels);
 
       byId('renderModeSelect').addEventListener('change', () => applyFilters(false));
       byId('citySelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
@@ -2473,6 +2706,9 @@
         byId('clearSearch').style.display = 'flex';
         clearActiveCircuit(false);
         applyFilters(true);
+        if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+          toggleDashboardPanels();
+        }
       });
 
       document.querySelector('.map-wrap').addEventListener('click', e => {
