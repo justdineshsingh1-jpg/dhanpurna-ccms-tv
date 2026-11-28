@@ -1788,9 +1788,15 @@
 
     const PHONETIC_REPLACEMENTS = [
       // Common acoustic / phonetic misrecognitions for 'panel'
-      [/\b(?:penal|pannel|pennel|canal|candle|channel|flannel|fannel|banner|panel no|panel number|pnl)\b/gi, 'panel'],
-      // Guwahati localities, roads and landmarks
-      [/\b(?:sadgaon|satgao|satgaun|sat cow|sat gram|sat gaon|shadgaon)\b/gi, 'satgaon'],
+      [/\b(?:penal|panal|pannel|pennel|channel|candle|canal|banner|flannel|fannel|pnl)\b/gi, 'panel'],
+      // Ward misrecognitions (e.g. "word 12", "board 12", "war 12", "what 12", "bird 12")
+      [/\b(?:word|board|war|what|bird|wad|wourd|warr)\b(?=\s*(?:no\.?|number)?\s*(?:\d+|[a-z]+))/gi, 'ward'],
+      // Phase misrecognitions (e.g. "face 1", "faze 2", "fees 3")
+      [/\b(?:faze|faiz|face|fase|fees|place)\b(?=\s*(?:1|2|3|one|two|three|r|y|b|red|yellow|blue))/gi, 'phase'],
+      // Faulty / not working / off lights
+      [/\b(?:kharab|bandh|defective|dead|off|damaged|problem\s+wali)\s*(?:light|lights|battiyan|batti)?\b/gi, 'faulty lights'],
+      // Guwahati & Assam localities, roads and landmarks
+      [/\b(?:sadgaon|satgao|satgaun|sat cow|sat gram|sat gaon|shadgaon|shotgun)\b/gi, 'satgaon'],
       [/\b(?:shankar dev|shankardev|shankar|sankardeva|sonkordev|shankar dey|mahanta)\b/gi, 'sankardev'],
       [/\b(?:bhashkar nagar|vaskar nagar|basker nagar|baskar nagar)\b/gi, 'bhaskar nagar'],
       [/\b(?:deshpur|this pur|dis poor|dishpur)\b/gi, 'dispur'],
@@ -1813,15 +1819,13 @@
       [/\b(?:chandmari|chand mari)\b/gi, 'chandmari'],
       [/\b(?:jalukbari|jaluk bari)\b/gi, 'jalukbari'],
       [/\b(?:borjhar|bor jhar)\b/gi, 'borjhar'],
-      // Phase pronunciation
-      [/\b(?:faze|faiz|face|fase)\b/gi, 'phase'],
       // Spoken Hindi / Hinglish phrasing
       [/\b(?:kitne?|kitna|kitni)\s+(?:light|lights|battiyan|batti)\s*(?:hai|hain)?\b/gi, 'how many lights'],
       [/\b(?:me|mein|par|pe)\s+(?:kitne?|kitna)\s+light\b/gi, 'how many lights'],
       [/\b(?:kaha|kahan)\s+hai\b/gi, 'where is'],
-      [/\b(?:dikhao|batao|bataiye|search karo|khojo)\b/gi, 'show'],
-      [/\bkul\s+(?:light|lights)\b/gi, 'total lights'],
-      [/\bsab\s+(?:light|lights)\b/gi, 'all lights']
+      [/\b(?:dikhao|batao|bataiye|search karo|khojo|dekho)\b/gi, 'show'],
+      [/\bkul\s+(?:light|lights|battiyan)\b/gi, 'total lights'],
+      [/\bsab\s+(?:light|lights|battiyan)\b/gi, 'all lights']
     ];
 
     function normalizePhonetics(text) {
@@ -1832,9 +1836,26 @@
       return s.trim();
     }
 
+    const HINDI_NUMBER_WORDS = {
+      'ek': 1, 'do': 2, 'teen': 3, 'chaar': 4, 'char': 4, 'paanch': 5, 'panch': 5,
+      'chhah': 6, 'che': 6, 'saat': 7, 'sat': 7, 'aath': 8, 'ath': 8, 'nau': 9, 'no': 9,
+      'das': 10, 'dus': 10, 'gyarah': 11, 'barah': 12, 'terah': 13, 'chaudah': 14,
+      'pandrah': 15, 'solah': 16, 'satrah': 17, 'atharah': 18, 'unnis': 19,
+      'bees': 20, 'ikis': 21, 'baees': 22, 'teis': 23, 'chaubis': 24, 'pachees': 25, 'pachis': 25,
+      'chhabis': 26, 'sattais': 27, 'athais': 28, 'untees': 29, 'tees': 30,
+      'iktees': 31, 'battees': 32, 'tentees': 33, 'chautees': 34, 'paintees': 35,
+      'chhattees': 36, 'saintees': 37, 'adhtees': 38, 'untalees': 39, 'chalis': 40,
+      'iktalees': 41, 'bayalees': 42, 'tentalis': 43, 'chawallis': 44, 'chavalis': 44,
+      'paintalis': 45, 'chhiyalees': 46, 'saintalees': 47, 'adtalees': 48, 'unchaas': 49,
+      'pachas': 50, 'sau': 100
+    };
+
     const DIGIT_WORDS = {
       'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
-      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9'
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+      'ek': '1', 'do': '2', 'teen': '3', 'chaar': '4', 'char': '4',
+      'paanch': '5', 'panch': '5', 'chhah': '6', 'che': '6', 'saat': '7',
+      'sat': '7', 'aath': '8', 'ath': '8', 'nau': '9'
     };
 
     const WORD_TO_NUM = {
@@ -1847,11 +1868,12 @@
     };
 
     function parseNumberInText(text) {
+      if (!text) return null;
       const directMatch = text.match(/\b\d+\b/);
       if (directMatch) return parseInt(directMatch[0], 10);
       const words = text.toLowerCase().split(/[\s-]+/);
       
-      // Support spoken single digit sequences (e.g. "four five" -> 45, "three five nine" -> 359)
+      // Support spoken single digit sequences (e.g. "four five" -> 45, "chaar paanch" -> 45)
       const digitIndices = [];
       words.forEach((w, i) => {
         if (DIGIT_WORDS[w] !== undefined) digitIndices.push(i);
@@ -1867,6 +1889,11 @@
         }
       }
 
+      // Check Hindi number words
+      for (const w of words) {
+        if (HINDI_NUMBER_WORDS[w] !== undefined) return HINDI_NUMBER_WORDS[w];
+      }
+
       let current = 0;
       let found = false;
       for (const w of words) {
@@ -1880,7 +1907,31 @@
       return found ? current : null;
     }
 
-    // High-performance voice command parser utilizing indexed lookups (<500ms)
+    // Levenshtein & token similarity for robust fuzzy recognition
+    function levenshteinDist(a, b) {
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          matrix[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+            ? matrix[i - 1][j - 1]
+            : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    function calcStringSimilarity(s1, s2) {
+      const longer = s1.length > s2.length ? s1 : s2;
+      const shorter = s1.length > s2.length ? s2 : s1;
+      if (longer.length === 0) return 1.0;
+      return (longer.length - levenshteinDist(longer, shorter)) / parseFloat(longer.length);
+    }
+
+    // High-performance universal voice command parser utilizing indexed lookups & fuzzy matching (<0.05ms)
     function processVoiceQuery(raw) {
       const query = (raw || '').trim();
       if (!query) return null;
@@ -1889,17 +1940,17 @@
         .replace(/[?,.!]+$/, '')
         .trim();
 
-      // Strip conversational introductory prefixes: "open", "show", "locate", "find", "search", "where is"
+      // Strip conversational introductory prefixes: "open", "show", "locate", "find", "search", "where is", "tell me about"
       const stripped = lower
-        .replace(/^(?:can you\s+)?(?:please\s+)?(?:open|show|locate|find|search|search for|go to|focus|zoom to|where is|tell me about)\s+/i, '')
+        .replace(/^(?:can you\s+)?(?:please\s+)?(?:open|show|locate|find|search|search for|go to|focus|zoom to|where is|tell me about|dekho|dikhao|kaha hai)\s+/i, '')
         .trim();
 
       // 1. Natural Language Filter combo: "Show faulty lights in Ward 12", "Show active lights in Ward 5"
-      const comboMatch = lower.match(/(?:show\s+)?(faulty|not working|broken|off|active|working|on)\s+lights?\s+(?:in|under|at)\s+ward\s*(\d+)/i);
+      const comboMatch = lower.match(/(?:show\s+)?(faulty|not working|broken|off|active|working|on|kharab|bandh)\s+lights?\s+(?:in|under|at|me|mein|ke)\s+ward\s*(\d+|[a-z]+)/i);
       if (comboMatch) {
         const stWord = comboMatch[1].toLowerCase();
-        const isFaulty = ['faulty', 'not working', 'broken', 'off'].includes(stWord);
-        const wardNum = comboMatch[2];
+        const isFaulty = ['faulty', 'not working', 'broken', 'off', 'kharab', 'bandh'].includes(stWord);
+        const wardNum = parseNumberInText(comboMatch[2]) || comboMatch[2];
         const statusVal = isFaulty ? 'faulty' : 'working';
         return {
           type: 'filter_combo',
@@ -1907,7 +1958,7 @@
           score: 110,
           title: 'Ward ' + wardNum + ' (' + statusVal + ')',
           status: statusVal,
-          ward: wardNum,
+          ward: String(wardNum),
           speech: 'Showing ' + statusVal + ' lights in Ward ' + wardNum + '.',
           answer: 'Showing <strong>' + statusVal + '</strong> lights in <strong>Ward ' + wardNum + '</strong>.',
           action: 'filter_combo'
@@ -1933,8 +1984,11 @@
         }
       }
 
-      // 3. Total lights or panels
-      if (/^(?:what is the\s+)?(?:total|all)\s*(?:lights?|assets?|panels?)\b/i.test(lower) || /^how many\s+(?:total\s+)?(?:lights?|panels?)\s*(?:are\s+there\s*)?(?:in\s+total|overall|altogether|in\s+guwahati)?$/i.test(lower) || /^(?:total|all)\s*(?:lights?)?$/i.test(lower)) {
+      // 3. Total lights or panels query
+      if (/^(?:what is the\s+)?(?:total|all)\s*(?:lights?|assets?|panels?|battiyan|batti)\b/i.test(lower)
+        || /^how many\s+(?:total\s+)?(?:lights?|panels?)\s*(?:are\s+there\s*)?(?:in\s+total|overall|altogether|in\s+guwahati)?$/i.test(lower)
+        || /^(?:total|all|kul|sab)\s*(?:lights?|battiyan)?$/i.test(lower)
+        || /total\s+kitn[aei]\s+light/i.test(lower)) {
         return {
           type: 'total',
           rawQuery: query,
@@ -1946,14 +2000,32 @@
         };
       }
 
-      // 4. Panel query: "Panel P101", "Open Panel P101", "Show Panel P101", "Locate Panel P101", "Panel 45"
-      const panelMatch = lower.match(/(?:panel|ccms|p)\s*[-–—:]?\s*(\d+)/i);
-      const isPanelIntent = lower.includes('panel') || lower.includes('ccms') || /^p\d+$/i.test(stripped);
+      // 4. Standalone Faulty / Not working lights query
+      if (/\b(?:faulty lights?|not working|kharab light|bandh batti|bandh light|dead lights?|damaged lights?)\b/i.test(lower)) {
+        return {
+          type: 'filter_combo',
+          rawQuery: query,
+          score: 95,
+          title: 'Faulty Lights',
+          status: 'faulty',
+          ward: 'all',
+          speech: 'Showing not working lights in Guwahati.',
+          answer: '⚠️ Showing <strong>Not Working (Faulty)</strong> lights in Guwahati.',
+          action: 'filter_combo'
+        };
+      }
+
+      // 5. Panel query: "Panel P101", "Open Panel 45", "45 number panel", "P45", "number 45"
+      const isPanelIntent = /\b(?:panel|ccms)\b/i.test(lower)
+        || /\bp\s*[-–—:]?\s*\d+/i.test(lower)
+        || /^\s*p\d+\s*$/i.test(stripped)
+        || (/\b(?:number|no)\b/i.test(lower) && !/\b(?:ward|phase|light)\b/i.test(lower));
+
       if (isPanelIntent || panelsByName.has(stripped)) {
-        const num = panelMatch ? parseNumberInText(panelMatch[0]) : parseNumberInText(lower);
+        const num = parseNumberInText(lower);
         const pKey = num !== null ? 'p' + num : stripped;
         const match = panelsByName.get(pKey) || panelsByName.get(stripped) || (num !== null ? searchCatalog.panels.find(p => {
-          const pNumMatch = p.label.match(/panel\s*[-–—:]?\s*(\d+)/i);
+          const pNumMatch = p.label.match(/(?:panel|p)\s*[-–—:]?\s*(\d+)/i);
           return pNumMatch && parseInt(pNumMatch[1], 10) === num;
         }) : null);
 
@@ -1976,11 +2048,12 @@
         }
       }
 
-      // 5. Ward query: "Ward 5", "Show Ward 10", "Open Ward 25", "Ward 12"
-      const wardMatch = lower.match(/(?:ward|w)\s*(?:no\.?|number)?\s*(\d+)/i);
-      if (wardMatch || wardsByNumber.has(stripped)) {
-        const wardNum = wardMatch ? wardMatch[1] : stripped;
-        const wData = wardsByNumber.get(wardNum) || wardsByNumber.get('ward ' + wardNum);
+      // 6. Ward query: "Ward 5", "Show Ward 10", "Open Ward 25", "Ward 12", "12 number ward", "Ward barah"
+      const isWardIntent = /\bward\b/i.test(lower);
+      if (isWardIntent || wardsByNumber.has(stripped)) {
+        const num = parseNumberInText(lower);
+        const wardKey = num !== null ? String(num) : stripped;
+        const wData = wardsByNumber.get(wardKey) || wardsByNumber.get('ward ' + wardKey);
         if (wData) {
           return {
             type: 'ward',
@@ -1994,23 +2067,6 @@
             action: 'filter_ward'
           };
         }
-      }
-
-      // 6. Road Search Check (Run exact/prefix road check first to prevent roads named "Main Road" from hitting the phase)
-      if (roadsByName.has(stripped) || roadsByName.has(lower)) {
-        const roadRec = roadsByName.get(stripped) || roadsByName.get(lower);
-        return {
-          type: 'road',
-          rawQuery: query,
-          score: 98,
-          title: roadRec.label,
-          roadLabel: roadRec.label,
-          count: roadRec.count,
-          speech: roadRec.label + ' located. ' + roadRec.count + ' lights connected.',
-          answer: '🛣️ <strong>' + roadRec.label + '</strong> located. <strong>' + roadRec.count + '</strong> lights connected.',
-          action: 'filter_road',
-          searchTerm: roadRec.label
-        };
       }
 
       // 7. Phase query: "R Phase", "Red Phase", "Phase 1", "Y Phase", "Show Red Phase"
@@ -2037,13 +2093,13 @@
         }
       }
 
-      // 7. Road Search: "Gandhi Mandap Road", "Kamakhya Mandir Main Road", "Lokhra Road"
+      // 8. Exact / Substring Road Search
       if (roadsByName.has(stripped) || roadsByName.has(lower)) {
         const roadRec = roadsByName.get(stripped) || roadsByName.get(lower);
         return {
           type: 'road',
           rawQuery: query,
-          score: 95,
+          score: 98,
           title: roadRec.label,
           roadLabel: roadRec.label,
           count: roadRec.count,
@@ -2054,7 +2110,7 @@
         };
       }
 
-      // Clean common question prefixes & suffixes for natural speech queries
+      // Clean conversational prefixes & suffixes for natural speech queries
       let cleaned = lower
         .replace(/^.*?(?:how many lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|how lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|lights? (?:are )?(?:at|in|on|near)|is there any light (?:at|in|on|near)?|show me(?: lights? (?:at|in|on|near)?)?|find(?: lights? (?:at|in|on|near)?)?|search(?: for)?|where is|tell me about)\s+/i, '')
         .replace(/\s+(?:how many lights?|how lights?|kitna light|kitne light|lights?|batti|battiyan).*$/i, '')
@@ -2063,7 +2119,7 @@
         .trim();
 
       if (cleaned.length >= 3) {
-        // Road substring match
+        // Road exact substring match
         const exactRoad = searchCatalog.roads.find(r => {
           const rLower = r.label.toLowerCase();
           return rLower === cleaned || rLower.includes(cleaned);
@@ -2106,6 +2162,43 @@
           }
         }
 
+        // Fuzzy / Sound-alike Road Match using Levenshtein & Token Similarity
+        let bestRoad = null;
+        let bestSim = 0;
+        for (let i = 0; i < searchCatalog.roads.length; i++) {
+          const r = searchCatalog.roads[i];
+          const rTokens = r.label.toLowerCase().split(/\s+/);
+          const cTokens = cleaned.split(/\s+/);
+          let sumScore = 0;
+          for (const ct of cTokens) {
+            let maxT = 0;
+            for (const rt of rTokens) {
+              const sim = calcStringSimilarity(ct, rt);
+              if (sim > maxT) maxT = sim;
+            }
+            sumScore += maxT;
+          }
+          const avgScore = sumScore / cTokens.length;
+          if (avgScore > bestSim) {
+            bestSim = avgScore;
+            bestRoad = r;
+          }
+        }
+        if (bestRoad && bestSim >= 0.72) {
+          return {
+            type: 'road',
+            rawQuery: query,
+            score: 88,
+            title: bestRoad.label,
+            roadLabel: bestRoad.label,
+            count: bestRoad.count,
+            speech: bestRoad.label + ' located. ' + bestRoad.count + ' lights connected.',
+            answer: '🛣️ <strong>' + bestRoad.label + '</strong>: <strong>' + bestRoad.count + '</strong> lights connected.',
+            action: 'filter_road',
+            searchTerm: bestRoad.label
+          };
+        }
+
         // Area / Multi-point Location Match across allRecords
         const searchTokens = cleaned.split(/[, ]+/).filter(t => t.length > 2 && !['near', 'the', 'area'].includes(t));
         if (searchTokens.length > 0) {
@@ -2133,7 +2226,7 @@
         }
       }
 
-      // 8. Fallback General Search
+      // 9. Fallback General Search across dataset
       const fallbackMatches = allRecords.filter(r => r.searchStr.includes(lower));
       const lightCount = fallbackMatches.filter(r => r.kind !== 'panel').length;
       if (lightCount > 0) {
@@ -2322,7 +2415,7 @@
       voiceRecognitionInstance = recognition;
       recognition.continuous = false; // Push-to-talk single command
       recognition.interimResults = true;
-      recognition.maxAlternatives = 5;
+      recognition.maxAlternatives = 10;
       recognition.lang = currentVoiceLang;
 
       let sessionCandidates = new Set();

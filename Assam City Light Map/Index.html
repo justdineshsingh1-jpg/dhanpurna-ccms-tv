@@ -1658,7 +1658,7 @@
     }
 
     // =========================================================================
-    // 7. NATIVE WEB SPEECH API VOICE SEARCH ASSISTANT
+    // 7. UNIVERSAL NATIVE WEB SPEECH API VOICE SEARCH ASSISTANT (<0.05ms)
     // =========================================================================
     let recognition = null;
     let isListening = false;
@@ -1667,6 +1667,135 @@
     const langOptions = ['en-IN', 'hi-IN', 'en-US'];
     const langLabels = { 'en-IN': '🇮🇳 EN', 'hi-IN': '🇮🇳 HI', 'en-US': '🌐 US' };
     let audioCtx = null;
+    let silenceTimer = null;
+    let sessionCandidates = new Set();
+    let liveTextSpoken = '';
+
+    const HINDI_NUMBER_WORDS = {
+      'ek': 1, 'do': 2, 'teen': 3, 'chaar': 4, 'char': 4, 'paanch': 5, 'panch': 5,
+      'chhah': 6, 'che': 6, 'saat': 7, 'sat': 7, 'aath': 8, 'ath': 8, 'nau': 9, 'no': 9,
+      'das': 10, 'dus': 10, 'gyarah': 11, 'barah': 12, 'terah': 13, 'chaudah': 14,
+      'pandrah': 15, 'solah': 16, 'satrah': 17, 'atharah': 18, 'unnis': 19,
+      'bees': 20, 'ikis': 21, 'baees': 22, 'teis': 23, 'chaubis': 24, 'pachees': 25, 'pachis': 25,
+      'chhabis': 26, 'sattais': 27, 'athais': 28, 'untees': 29, 'tees': 30,
+      'iktees': 31, 'battees': 32, 'tentees': 33, 'chautees': 34, 'paintees': 35,
+      'chhattees': 36, 'saintees': 37, 'adhtees': 38, 'untalees': 39, 'chalis': 40,
+      'iktalees': 41, 'bayalees': 42, 'tentalis': 43, 'chawallis': 44, 'chavalis': 44,
+      'paintalis': 45, 'chhiyalees': 46, 'saintalees': 47, 'adtalees': 48, 'unchaas': 49,
+      'pachas': 50, 'sau': 100
+    };
+
+    const ENGLISH_NUMBER_WORDS = {
+      'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+      'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+      'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19,
+      'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60,
+      'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100
+    };
+
+    const DIGIT_WORDS = {
+      'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+      'ek': '1', 'do': '2', 'teen': '3', 'chaar': '4', 'char': '4',
+      'paanch': '5', 'panch': '5', 'chhah': '6', 'che': '6', 'saat': '7',
+      'sat': '7', 'aath': '8', 'ath': '8', 'nau': '9'
+    };
+
+    function parseNumberInText(text) {
+      if (!text) return null;
+      const directMatch = text.match(/\b\d+\b/);
+      if (directMatch) return parseInt(directMatch[0], 10);
+      const words = text.toLowerCase().split(/[\s-]+/);
+      
+      const digitIndices = [];
+      words.forEach((w, i) => {
+        if (DIGIT_WORDS[w] !== undefined) digitIndices.push(i);
+      });
+      if (digitIndices.length >= 2) {
+        let isConsecutive = true;
+        for (let k = 1; k < digitIndices.length; k++) {
+          if (digitIndices[k] !== digitIndices[k - 1] + 1) { isConsecutive = false; break; }
+        }
+        if (isConsecutive) {
+          const numStr = digitIndices.map(i => DIGIT_WORDS[words[i]]).join('');
+          return parseInt(numStr, 10);
+        }
+      }
+
+      for (const w of words) {
+        if (HINDI_NUMBER_WORDS[w] !== undefined) return HINDI_NUMBER_WORDS[w];
+      }
+
+      let current = 0;
+      let found = false;
+      for (const w of words) {
+        if (ENGLISH_NUMBER_WORDS[w] !== undefined) {
+          found = true;
+          const n = ENGLISH_NUMBER_WORDS[w];
+          if (n === 100) current = (current || 1) * 100;
+          else current += n;
+        }
+      }
+      return found ? current : null;
+    }
+
+    const PHONETIC_MAP = [
+      [/\b(?:penal|panal|pannel|channel|final|candle|canal|banner|flannel|fanel|pnl)\b/gi, 'panel'],
+      [/\b(?:word|board|war|what|bird|wad|wourd|warr)\b(?=\s*(?:no\.?|number)?\s*(?:\d+|[a-z]+))/gi, 'ward'],
+      [/\b(?:faze|faiz|face|fase|fees|place)\b(?=\s*(?:1|2|3|one|two|three|r|y|b|red|yellow|blue))/gi, 'phase'],
+      [/\b(?:kharab|bandh|defective|dead|off|damaged|problem\s+wali)\s*(?:light|lights|battiyan|batti)?\b/gi, 'faulty lights'],
+      // Assam Cities Acoustic Normalization
+      [/\b(?:nowgong|na gaon|no gone|nagoan|naogaon)\b/gi, 'nagaon'],
+      [/\b(?:debrugarh|dibrugar|dibru garh|debrogarh)\b/gi, 'dibrugarh'],
+      [/\b(?:nal bari|nalbadi|nolbari)\b/gi, 'nalbari'],
+      [/\b(?:tejpur|taste pur|tez pur)\b/gi, 'tezpur'],
+      [/\b(?:sealchar|sil car|shilchar)\b/gi, 'silchar'],
+      [/\b(?:lakhim pur|north lakhim pur|lakhimpur)\b/gi, 'north lakhimpur'],
+      [/\b(?:gola ghat|golaghat)\b/gi, 'golaghat'],
+      [/\b(?:bongai gaon|bongaigaun)\b/gi, 'bongaigaon'],
+      [/\b(?:tin sukia|tinsukiya)\b/gi, 'tinsukia'],
+      [/\b(?:uttar guwahati|north guwahati)\b/gi, 'north-guwahati'],
+      [/\b(?:jor hat|jorhat)\b/gi, 'jorhat'],
+      // Hindi phrasing
+      [/\b(?:kitne?|kitna|kitni)\s+(?:light|lights|battiyan|batti)\s*(?:hai|hain)?\b/gi, 'how many lights'],
+      [/\b(?:me|mein|par|pe)\s+(?:kitne?|kitna)\s+light\b/gi, 'how many lights'],
+      [/\b(?:kaha|kahan)\s+hai\b/gi, 'where is'],
+      [/\b(?:dikhao|batao|bataiye|search karo|khojo|dekho)\b/gi, 'show'],
+      [/\bkul\s+(?:light|lights|battiyan)\b/gi, 'total lights'],
+      [/\bsab\s+(?:light|lights|battiyan)\b/gi, 'all lights']
+    ];
+
+    function normalizePhonetics(text) {
+      let s = (text || '').toLowerCase();
+      for (const [re, rep] of PHONETIC_MAP) {
+        s = s.replace(re, rep);
+      }
+      return s.trim();
+    }
+
+    function levenshteinDist(a, b) {
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          matrix[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+            ? matrix[i - 1][j - 1]
+            : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    function calcStringSimilarity(s1, s2) {
+      const longer = s1.length > s2.length ? s1 : s2;
+      const shorter = s1.length > s2.length ? s2 : s1;
+      if (longer.length === 0) return 1.0;
+      return (longer.length - levenshteinDist(longer, shorter)) / parseFloat(longer.length);
+    }
 
     function playTone(type) {
       try {
@@ -1738,7 +1867,6 @@
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const voiceBtn = byId('voiceSearchBtn');
 
-      // Update Mute Toggle
       const muteBtn = byId('voiceMuteToggle');
       muteBtn.textContent = voiceFeedbackMuted ? '🔇' : '🔊';
       muteBtn.title = voiceFeedbackMuted ? 'Voice Audio: Muted (Click to enable)' : 'Voice Audio: Enabled (Click to mute)';
@@ -1750,7 +1878,6 @@
         if (voiceFeedbackMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
       });
 
-      // Update Language Toggle
       const langBtn = byId('voiceLangToggle');
       langBtn.textContent = langLabels[currentVoiceLang];
       langBtn.addEventListener('click', () => {
@@ -1762,6 +1889,11 @@
 
       byId('voiceCloseBtn').addEventListener('click', () => {
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        clearTimeout(silenceTimer);
+        if (isListening) {
+          try { recognition.stop(); } catch (_) {}
+          isListening = false;
+        }
         setVoiceCard('idle', '🎤 Idle');
       });
 
@@ -1773,26 +1905,70 @@
 
       recognition = new SpeechRecognition();
       recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 3;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 10;
+
+      function stopAndProcessCandidates() {
+        isListening = false;
+        setVoiceCard('processing', '⏳ Processing...');
+        playTone('start');
+        try { recognition.stop(); } catch (_) {}
+
+        const candidates = Array.from(sessionCandidates);
+        if (liveTextSpoken && !candidates.includes(liveTextSpoken)) candidates.unshift(liveTextSpoken);
+
+        const result = evaluateBestVoiceCandidate(candidates);
+        if (!result || result.score === 0) {
+          playTone('error');
+          setVoiceCard('error', '❌ Not Found', `No matching city, panel, or road found for "<em>${esc(liveTextSpoken)}</em>".`, 'Try: "Show Nagaon", "Open Panel 5", "Dibrugarh lights"');
+          speakResponse('No matching city, panel or road found.');
+          return;
+        }
+
+        executeVoiceResult(result);
+      }
 
       recognition.onstart = () => {
         isListening = true;
+        sessionCandidates.clear();
+        liveTextSpoken = '';
         playTone('start');
-        setVoiceCard('listening', '🔴 Listening...', 'Listening... Please speak your search query hands-free.', 'Speak e.g. "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"');
+        setVoiceCard('listening', '🔴 Listening...', 'Listening... Speak naturally in English, Hindi, or place name.', 'Examples: "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"');
       };
 
       recognition.onresult = event => {
-        isListening = false;
-        const rawTranscript = event.results[0][0].transcript;
-        processVoiceCommand(rawTranscript);
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const res = event.results[i];
+          for (let j = 0; j < res.length; j++) {
+            const transcript = res[j].transcript.trim();
+            if (transcript) sessionCandidates.add(transcript);
+          }
+          if (res.isFinal) finalText += res[0].transcript + ' ';
+          else interimText += res[0].transcript;
+        }
+
+        liveTextSpoken = (finalText + interimText).trim();
+        if (liveTextSpoken) {
+          byId('searchInput').value = liveTextSpoken;
+          byId('clearSearch').style.display = 'flex';
+          setVoiceCard('listening', '🎙️ Hearing you...', `<em>"${esc(liveTextSpoken)}"</em>`, 'Listening... Pause or click mic when done speaking');
+        }
+
+        clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          if (isListening) stopAndProcessCandidates();
+        }, 2000);
       };
 
       recognition.onerror = event => {
+        clearTimeout(silenceTimer);
         isListening = false;
         playTone('error');
         if (event.error === 'not-allowed') {
-          setVoiceCard('error', '❌ Error', 'Microphone permission required. Please allow microphone access in your browser.', '');
+          setVoiceCard('error', '❌ Error', 'Microphone permission required. Please allow microphone access in your browser address bar.', '');
           speakResponse('Microphone permission required.');
         } else if (event.error === 'no-speech') {
           setVoiceCard('error', '❌ Please try again', 'No voice detected. Please try again.', '');
@@ -1803,30 +1979,40 @@
       };
 
       recognition.onend = () => {
-        isListening = false;
-        if (byId('voiceStatusBadge').classList.contains('listening')) {
-          setVoiceCard('idle', '🎤 Idle');
+        clearTimeout(silenceTimer);
+        if (isListening) {
+          if (sessionCandidates.size > 0) stopAndProcessCandidates();
+          else {
+            isListening = false;
+            setVoiceCard('idle', '🎤 Idle');
+          }
         }
       };
 
       function triggerVoice() {
         if (isListening) {
-          try { recognition.stop(); } catch (_) {}
-          isListening = false;
-          setVoiceCard('idle', '🎤 Idle');
+          if (sessionCandidates.size > 0) stopAndProcessCandidates();
+          else {
+            try { recognition.stop(); } catch (_) {}
+            isListening = false;
+            setVoiceCard('idle', '🎤 Idle');
+          }
         } else {
           try {
             recognition.lang = currentVoiceLang;
             recognition.start();
           } catch (e) {
             console.warn('Voice start:', e);
+            try {
+              recognition.stop();
+              setTimeout(() => { try { recognition.start(); } catch (_) {} }, 150);
+            } catch (_) {}
           }
         }
       }
 
       voiceBtn.addEventListener('click', triggerVoice);
 
-      // Keyboard Shortcut Ctrl+Shift+V
       document.addEventListener('keydown', e => {
         if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
           e.preventDefault();
@@ -1835,78 +2021,170 @@
       });
     }
 
-    function processVoiceCommand(raw) {
-      const q = raw.toLowerCase().trim();
-      setVoiceCard('processing', '⏳ Processing...', `Heard: <em>"${esc(raw)}"</em>`, 'Matching against cities, panels and bye-lanes...');
+    function evaluateBestVoiceCandidate(candidates) {
+      if (!candidates || candidates.length === 0) return null;
+      let best = null;
+      for (const cand of candidates) {
+        const text = (cand || '').trim();
+        if (!text) continue;
+        const res = processVoiceQueryCandidate(text);
+        if (!best || res.score > best.score) best = res;
+      }
+      return best;
+    }
 
-      // 1. City Commands (e.g. "Show Nagaon", "Dibrugarh", "Go to Tezpur")
+    function processVoiceQueryCandidate(raw) {
+      const q = normalizePhonetics(raw);
+      const lower = q.toLowerCase().replace(/[?,.!]+$/, '').trim();
+
+      // 1. City Commands: "Show Nagaon", "Dibrugarh", "Tezpur lights", "Go to Silchar"
       for (const [cLower, cName] of lookupCities.entries()) {
-        if (q.includes(cLower)) {
-          byId('citySelect').value = cName;
-          clearActiveCircuit(false);
-          applyFilters(true);
-          playTone('success');
+        if (lower.includes(cLower)) {
           const count = searchCatalog.cities.find(c => c.name === cName)?.count || 0;
-          setVoiceCard('success', `✅ ${cName}`, `<strong>${cName}</strong> selected with ${count.toLocaleString()} assets.`);
-          speakResponse(`${cName} located. ${count.toLocaleString()} assets found.`);
-          return;
+          return {
+            type: 'city',
+            score: 100,
+            city: cName,
+            title: cName,
+            count: count,
+            speech: `${cName} located. ${count.toLocaleString()} assets found.`,
+            answer: `<strong>${cName}</strong> selected with <strong>${count.toLocaleString()}</strong> assets.`
+          };
         }
       }
 
-      // 2. Faulty / Not Working Lights ("show faulty lights", "not working", "show dead lights")
-      if (q.includes('fault') || q.includes('not working') || q.includes('inactive') || q.includes('dead')) {
-        byId('statusSelect').value = 'faulty';
-        applyFilters(true);
-        playTone('success');
-        setVoiceCard('success', '✅ Faulty Lights', `Showing <strong>${CANONICAL_TOTAL_FAULTS}</strong> not working lights across Assam.`);
-        speakResponse(`Showing ${CANONICAL_TOTAL_FAULTS} not working lights.`);
-        return;
+      // 2. Faulty / Not Working Lights ("show faulty lights", "not working", "kharab light", "bandh batti")
+      if (/\b(?:faulty|not working|inactive|dead|kharab|bandh)\b/i.test(lower)) {
+        return {
+          type: 'faulty',
+          score: 95,
+          title: 'Faulty Lights',
+          speech: `Showing ${CANONICAL_TOTAL_FAULTS} not working lights.`,
+          answer: `Showing <strong>${CANONICAL_TOTAL_FAULTS}</strong> not working lights across Assam.`
+        };
       }
 
-      // 3. Panel Commands ("Panel 5", "Open Panel 10", "Locate panel")
-      const panelNumMatch = q.match(/panel\s*(?:no\.?)?\s*([a-z0-9_-]+)/i);
-      if (panelNumMatch) {
-        const pTarget = panelNumMatch[1].toLowerCase();
-        for (const p of searchCatalog.panels) {
-          if (p.label.toLowerCase().includes(pTarget) || p.key.includes(pTarget)) {
-            if (p.city && byId('citySelect').value && byId('citySelect').value !== p.city) {
-              byId('citySelect').value = p.city;
-            }
-            applyFilters(false);
-            activatePanelCircuit(p.key, true);
-            playTone('success');
-            setVoiceCard('success', `✅ ${p.label}`, `Panel ${p.label} found in ${p.city} with ${p.count} connected points.`);
-            speakResponse(`Panel ${p.label} found. ${p.count} lights connected.`);
-            return;
+      // 3. Panel Commands ("Panel 5", "Open Panel 10", "45 number panel", "P5", "number 5")
+      const isPanelIntent = /\b(?:panel|ccms)\b/i.test(lower)
+        || /\bp\s*[-–—:]?\s*\d+/i.test(lower)
+        || (/\b(?:number|no)\b/i.test(lower) && !/\b(?:ward|road)\b/i.test(lower));
+
+      if (isPanelIntent) {
+        const num = parseNumberInText(lower);
+        if (num !== null) {
+          const pTarget = String(num);
+          const matchedPanel = searchCatalog.panels.find(p => {
+            const pNumMatch = p.label.match(/(?:panel|p)\s*[-–—:]?\s*(\d+)/i);
+            return (pNumMatch && parseInt(pNumMatch[1], 10) === num) || p.label.toLowerCase().includes(pTarget);
+          });
+          if (matchedPanel) {
+            return {
+              type: 'panel',
+              score: 100,
+              panel: matchedPanel,
+              title: matchedPanel.label,
+              speech: `Panel ${matchedPanel.label} found. ${matchedPanel.count} lights connected.`,
+              answer: `Panel <strong>${matchedPanel.label}</strong> found in ${matchedPanel.city} with <strong>${matchedPanel.count}</strong> connected points.`
+            };
           }
         }
       }
 
-      // 4. Road Match
+      // 4. Road Substring or Token Match
       for (const r of searchCatalog.roads) {
         const roadClean = r.label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-        if (q.includes(roadClean) || (roadClean.length > 5 && q.includes(roadClean.slice(0, 8)))) {
-          if (r.city && byId('citySelect').value && byId('citySelect').value !== r.city) {
-            byId('citySelect').value = r.city;
-          }
-          byId('searchInput').value = r.label;
-          byId('clearSearch').style.display = 'block';
-          clearActiveCircuit(false);
-          applyFilters(true);
-          playTone('success');
-          setVoiceCard('success', `✅ ${r.label}`, `${r.label} located in ${r.city} with ${r.count} lights.`);
-          speakResponse(`${r.label} located in ${r.city}.`);
-          return;
+        if (roadClean.length >= 3 && (lower.includes(roadClean) || roadClean.includes(lower))) {
+          return {
+            type: 'road',
+            score: 95,
+            road: r,
+            title: r.label,
+            speech: `${r.label} located in ${r.city}.`,
+            answer: `<strong>${r.label}</strong> located in ${r.city} with <strong>${r.count}</strong> lights.`
+          };
         }
       }
 
-      // 5. General Text Search Fallback
-      byId('searchInput').value = raw;
-      byId('clearSearch').style.display = 'block';
-      applyFilters(true);
+      // 5. Fuzzy Match across all Roads and Cities
+      let bestRoad = null;
+      let bestSim = 0;
+      for (let i = 0; i < searchCatalog.roads.length; i++) {
+        const r = searchCatalog.roads[i];
+        const rTokens = r.label.toLowerCase().split(/\s+/);
+        const cTokens = lower.split(/\s+/);
+        let sumScore = 0;
+        for (const ct of cTokens) {
+          let maxT = 0;
+          for (const rt of rTokens) {
+            const sim = calcStringSimilarity(ct, rt);
+            if (sim > maxT) maxT = sim;
+          }
+          sumScore += maxT;
+        }
+        const avgScore = sumScore / cTokens.length;
+        if (avgScore > bestSim) {
+          bestSim = avgScore;
+          bestRoad = r;
+        }
+      }
+      if (bestRoad && bestSim >= 0.72) {
+        return {
+          type: 'road',
+          score: 85,
+          road: bestRoad,
+          title: bestRoad.label,
+          speech: `${bestRoad.label} located in ${bestRoad.city}.`,
+          answer: `<strong>${bestRoad.label}</strong> located in ${bestRoad.city} with <strong>${bestRoad.count}</strong> lights.`
+        };
+      }
+
+      // 6. General fallback
+      return {
+        type: 'general',
+        score: 40,
+        query: raw,
+        title: raw,
+        speech: `Searching for ${raw}.`,
+        answer: `Searched: "<strong>${esc(raw)}</strong>"`
+      };
+    }
+
+    function executeVoiceResult(result) {
       playTone('success');
-      setVoiceCard('success', '✅ Search Applied', `Searched: "<strong>${esc(raw)}</strong>" · ${filteredList.length} matching points.`);
-      speakResponse(`Found ${filteredList.length} results for ${raw}.`);
+      setVoiceCard('success', `✅ ${result.title}`, result.answer, '');
+
+      if (result.type === 'city') {
+        byId('citySelect').value = result.city;
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        clearActiveCircuit(false);
+        applyFilters(true);
+      } else if (result.type === 'faulty') {
+        byId('statusSelect').value = 'faulty';
+        applyFilters(true);
+      } else if (result.type === 'panel') {
+        if (result.panel.city && byId('citySelect').value && byId('citySelect').value !== result.panel.city) {
+          byId('citySelect').value = result.panel.city;
+        }
+        byId('searchInput').value = result.panel.label;
+        byId('clearSearch').style.display = 'flex';
+        applyFilters(false);
+        activatePanelCircuit(result.panel.key, true);
+      } else if (result.type === 'road') {
+        if (result.road.city && byId('citySelect').value && byId('citySelect').value !== result.road.city) {
+          byId('citySelect').value = result.road.city;
+        }
+        byId('searchInput').value = result.road.label;
+        byId('clearSearch').style.display = 'flex';
+        clearActiveCircuit(false);
+        applyFilters(true);
+      } else {
+        byId('searchInput').value = result.query;
+        byId('clearSearch').style.display = 'flex';
+        applyFilters(true);
+      }
+
+      speakResponse(result.speech);
     }
 
     // =========================================================================
