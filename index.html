@@ -570,7 +570,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v28';
+    const DB_KEY = 'bundled_or_custom_v30';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -904,7 +904,12 @@
       resetAllFilters(false);
       applyInitialViewSettings();
 
-      const cached = await loadDatasetFromCache();
+      let cached = await loadDatasetFromCache();
+      if (cached && Array.isArray(cached.records) && cached.records.some(r => r.ward && String(r.ward).toLowerCase().includes('not found'))) {
+        console.warn('Detected stale cached dataset with "Not Found" ward values. Purging IndexedDB cache...');
+        try { await clearDatasetCache(); } catch (_) {}
+        cached = null;
+      }
       if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
         for (let i = 0; i < cached.records.length; i++) {
           cached.records[i].city = 'Guwahati';
@@ -1177,12 +1182,33 @@
         const r = allRecords[i];
         if (r.panelKey) {
           if (!panelMetaMap.has(r.panelKey)) {
-            panelMetaMap.set(r.panelKey, { phase: r.phase, ward: r.ward });
-          } else {
-            const m = panelMetaMap.get(r.panelKey);
-            if (!m.phase && r.phase) m.phase = r.phase;
-            if (!m.ward && r.ward) m.ward = r.ward;
+            panelMetaMap.set(r.panelKey, { phase: r.phase, ward: r.ward, wardCounts: new Map() });
           }
+          const m = panelMetaMap.get(r.panelKey);
+          if (!m.phase && r.phase) m.phase = r.phase;
+          if (r.ward) {
+            m.wardCounts.set(r.ward, (m.wardCounts.get(r.ward) || 0) + 1);
+            if (!m.ward) m.ward = r.ward;
+          }
+        }
+      }
+
+      // Propagate most common ward to panel and from panel to any lights without ward
+      for (const [key, m] of panelMetaMap.entries()) {
+        if (!m.ward && m.wardCounts && m.wardCounts.size > 0) {
+          let bestWard = '', maxCount = 0;
+          for (const [w, c] of m.wardCounts.entries()) {
+            if (c > maxCount) { maxCount = c; bestWard = w; }
+          }
+          m.ward = bestWard;
+        }
+      }
+
+      for (let i = 0; i < allRecords.length; i++) {
+        const r = allRecords[i];
+        if (!r.ward && r.panelKey && panelMetaMap.has(r.panelKey)) {
+          const pw = panelMetaMap.get(r.panelKey).ward;
+          if (pw) r.ward = pw;
         }
       }
 
@@ -2627,6 +2653,15 @@
       return s;
     }
 
+    function normalizeWard(val) {
+      if (!val) return '';
+      let s = String(val).trim();
+      s = s.replace(/^ward\s*[-:#]?\s*/i, '').trim();
+      if (!s || /^(not\s*found|unknown|not\s*specified|null|undefined|none|n\/?a|-)$/i.test(s)) return '';
+      const m = s.match(/\b\d+\b/);
+      return m ? m[0] : s;
+    }
+
     // =========================================================================
     // 5. MANUAL CSV UPLOAD HANDLER
     // =========================================================================
@@ -2782,7 +2817,7 @@
         const panelKey = panel ? `${city}|${panel}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
         const photoUrl = colPhoto ? String(r[colPhoto] || '').trim() : '';
         const phase = normalizePhase(colPhase ? String(r[colPhase] || '').trim() : '');
-        const ward = colWard ? String(r[colWard] || '').trim() : '';
+        const ward = normalizeWard(colWard ? r[colWard] : '');
 
         clean.push({
           lat, lng, city, lane,
@@ -3615,7 +3650,7 @@
 
       const meta = r.panelKey ? panelMetaMap.get(r.panelKey) : null;
       const phaseVal = r.phase || meta?.phase || 'Not specified';
-      const rawWard = r.ward || meta?.ward || '';
+      const rawWard = normalizeWard(r.ward || meta?.ward || '');
       const wardVal = rawWard ? (rawWard.toLowerCase().includes('ward') ? rawWard : `Ward ${rawWard}`) : 'Not specified';
 
       const fields = [
