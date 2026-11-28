@@ -553,7 +553,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v24';
+    const DB_KEY = 'bundled_or_custom_v25';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1179,14 +1179,21 @@
 
     function renderSearchDropdown(rawVal) {
       const dropdown = byId('searchDropdown');
-      const query = rawVal.toLowerCase().trim();
+      const rawLower = (rawVal || '').toLowerCase().trim();
       activeDropdownIdx = -1;
 
-      if (!query) {
+      if (!rawLower) {
         dropdown.classList.remove('show');
         dropdown.innerHTML = '';
         return;
       }
+
+      // Strip question prefixes so queries like "how many lights in panel 45" or "lights near satgaon" work seamlessly
+      const cleaned = rawLower
+        .replace(/^.*?(?:how many lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|how lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|lights? (?:are )?(?:at|in|on|near)|is there any light (?:at|in|on|near)?|show me(?: lights? (?:at|in|on|near)?)?|find(?: lights? (?:at|in|on|near)?)?|search(?: for)?|where is|tell me about)\s+/i, '')
+        .replace(/[?.!]+$/, '')
+        .trim();
+      const query = cleaned || rawLower;
 
       const matchedCities = searchCatalog.cities
         .filter(c => c.name.toLowerCase().includes(query))
@@ -1446,6 +1453,27 @@
         searchTimer = setTimeout(() => {
           clearActiveCircuit(false);
           applyFilters(true);
+
+          // If user typed a natural language question or panel query, show instant answer card
+          if (val && /(?:how many|how light|panel\s*\d+|total|lights?\s+(?:in|at|near|on))/i.test(val)) {
+            const res = processVoiceQuery(val);
+            if (res && res.type !== 'not_found' && res.type !== 'search') {
+              let actionBtns = '';
+              if (res.type === 'panel') {
+                actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnTrace">⚡ Trace Feeder</button>`;
+              } else if (res.type === 'road' || res.type === 'area') {
+                actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnZoom">📍 Focus Map</button>`;
+              }
+              actionBtns += `<button class="voice-action-btn" type="button" id="voiceBtnSpeak">🔊 Listen</button>`;
+              showVoiceAnswer(`💬 Instant Answer`, res.answer, actionBtns, 12000);
+              const traceBtn = byId('voiceBtnTrace');
+              if (traceBtn && res.panelKey) traceBtn.addEventListener('click', () => activatePanelCircuit(res.panelKey, true));
+              const zoomBtn = byId('voiceBtnZoom');
+              if (zoomBtn) zoomBtn.addEventListener('click', () => applyFilters(true));
+              const speakBtn = byId('voiceBtnSpeak');
+              if (speakBtn) speakBtn.addEventListener('click', () => speakText(res.speech));
+            }
+          }
         }, 220);
       });
 
@@ -1457,21 +1485,70 @@
 
       searchInput.addEventListener('keydown', e => {
         const items = searchDropdown.querySelectorAll('.dropdown-item');
-        if (!searchDropdown.classList.contains('show') || items.length === 0) return;
 
         if (e.key === 'ArrowDown') {
+          if (!searchDropdown.classList.contains('show') || items.length === 0) return;
           e.preventDefault();
           activeDropdownIdx = (activeDropdownIdx + 1) % items.length;
           items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
           items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'ArrowUp') {
+          if (!searchDropdown.classList.contains('show') || items.length === 0) return;
           e.preventDefault();
           activeDropdownIdx = (activeDropdownIdx - 1 + items.length) % items.length;
           items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
           items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
-        } else if (e.key === 'Enter' && activeDropdownIdx >= 0) {
+        } else if (e.key === 'Enter') {
           e.preventDefault();
-          selectDropdownOption(items[activeDropdownIdx]);
+          if (searchDropdown.classList.contains('show') && activeDropdownIdx >= 0 && items[activeDropdownIdx]) {
+            selectDropdownOption(items[activeDropdownIdx]);
+            return;
+          }
+          // Enter pressed directly: run smart query
+          const text = searchInput.value.trim();
+          if (text) {
+            searchDropdown.classList.remove('show');
+            const result = processVoiceQuery(text);
+            if (result && result.type !== 'not_found') {
+              let actionBtns = '';
+              if (result.type === 'panel') {
+                actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnTrace">⚡ Trace Feeder</button>`;
+              } else if (result.type === 'road' || result.type === 'area' || result.type === 'search') {
+                actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnZoom">📍 Focus Map</button>`;
+              }
+              actionBtns += `<button class="voice-action-btn" type="button" id="voiceBtnSpeak">🔊 Listen</button>`;
+
+              showVoiceAnswer(`💬 Search: "${esc(text)}"`, result.answer, actionBtns, 14000);
+
+              if (result.action === 'activate_panel') {
+                activatePanelCircuit(result.panelKey, true);
+              } else if (result.action === 'filter_road' || result.action === 'filter_search') {
+                clearActiveCircuit(false);
+                applyFilters(true);
+              } else if (result.action === 'filter_phase') {
+                if (byId('phaseSelect')) byId('phaseSelect').value = result.phase;
+                clearActiveCircuit(false);
+                applyFilters(true);
+              } else if (result.action === 'filter_ward') {
+                if (byId('wardSelect')) byId('wardSelect').value = result.ward;
+                clearActiveCircuit(false);
+                applyFilters(true);
+              } else if (result.action === 'show_all') {
+                resetAllFilters(false);
+                applyFilters(true);
+              }
+
+              const traceBtn = byId('voiceBtnTrace');
+              if (traceBtn && result.panelKey) traceBtn.addEventListener('click', () => activatePanelCircuit(result.panelKey, true));
+              const zoomBtn = byId('voiceBtnZoom');
+              if (zoomBtn) zoomBtn.addEventListener('click', () => applyFilters(true));
+              const speakBtn = byId('voiceBtnSpeak');
+              if (speakBtn) speakBtn.addEventListener('click', () => speakText(result.speech));
+            } else {
+              clearActiveCircuit(false);
+              applyFilters(true);
+            }
+          }
         } else if (e.key === 'Escape') {
           searchDropdown.classList.remove('show');
         }
@@ -2333,7 +2410,16 @@
 
     function applyFilters(zoomToFit) {
       const city = byId('citySelect').value;
-      const query = byId('searchInput').value.toLowerCase().trim();
+      const rawInput = (byId('searchInput').value || '').toLowerCase().trim();
+      let query = rawInput;
+      if (rawInput) {
+        const cleaned = rawInput
+          .replace(/^.*?(?:how many lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|how lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|lights? (?:are )?(?:at|in|on|near)|is there any light (?:at|in|on|near)?|show me(?: lights? (?:at|in|on|near)?)?|find(?: lights? (?:at|in|on|near)?)?|search(?: for)?|where is|tell me about)\s+/i, '')
+          .replace(/[?.!]+$/, '')
+          .trim();
+        query = cleaned || rawInput;
+      }
+      const queryTokens = query ? query.split(/[, ]+/).filter(t => t.length > 1 && !['near', 'the', 'at', 'in', 'on'].includes(t)) : [];
       const status = byId('statusSelect').value;
       const phase = byId('phaseSelect') ? byId('phaseSelect').value : 'all';
       const ward = byId('wardSelect') ? byId('wardSelect').value : 'all';
@@ -2360,7 +2446,13 @@
         if (status !== 'all' && r.stState !== status) return false;
         if (phase !== 'all' && r.phase !== phase) return false;
         if (ward !== 'all' && r.ward !== ward) return false;
-        if (query && !r.searchStr.includes(query)) return false;
+        if (query) {
+          if (!r.searchStr.includes(query)) {
+            if (queryTokens.length === 0 || !queryTokens.every(t => r.searchStr.includes(t))) {
+              return false;
+            }
+          }
+        }
 
         // Interactive Legend Filtering
         if (activeLegendFilter) {
