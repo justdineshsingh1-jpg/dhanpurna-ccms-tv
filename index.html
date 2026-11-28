@@ -852,6 +852,8 @@
       }
       if (byId('circuitBanner')) byId('circuitBanner').classList.remove('active');
       if (circuitLayer) circuitLayer.clearLayers();
+      showPanelMarkers = true;
+      if (byId('showPanelMarkers')) byId('showPanelMarkers').checked = true;
 
       // Clear active states on legend buttons
       document.querySelectorAll('.legend-item[data-legend-key]').forEach(btn => {
@@ -1553,6 +1555,10 @@
           showToast('Showing all map assets');
         } else {
           activeLegendFilter = key;
+          if (key === 'panel') {
+            showPanelMarkers = true;
+            if (byId('showPanelMarkers')) byId('showPanelMarkers').checked = true;
+          }
           const msgMap = {
             'panel': '🅿️ Showing all CCMS Panels',
             'light': '💡 Showing street lights',
@@ -1580,6 +1586,10 @@
       if (topPanels) {
         topPanels.closest('.top-stat').addEventListener('click', () => {
           activeLegendFilter = activeLegendFilter === 'panel' ? '' : 'panel';
+          if (activeLegendFilter === 'panel') {
+            showPanelMarkers = true;
+            if (byId('showPanelMarkers')) byId('showPanelMarkers').checked = true;
+          }
           showToast(activeLegendFilter === 'panel' ? '🅿️ Showing all CCMS Panels' : 'Showing all map assets');
           clearActiveCircuit(false);
           applyFilters(true);
@@ -3264,15 +3274,20 @@
             const isPanel = r.kind === 'panel';
 
             if (isPanel) {
-              if (showPanelMarkers) visiblePanels.push({ pt, active, r });
+              if (showPanelMarkers || activeLegendFilter === 'panel' || active) {
+                visiblePanels.push({ pt, active, r });
+                const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
+                let bucket = hitGrid.get(key);
+                if (!bucket) hitGrid.set(key, bucket = []);
+                bucket.push({ x: pt.x, y: pt.y, r: pRadius + 4, record: r, isPanel: true });
+              }
             } else {
               visibleLights.push({ pt, active, r });
+              const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
+              let bucket = hitGrid.get(key);
+              if (!bucket) hitGrid.set(key, bucket = []);
+              bucket.push({ x: pt.x, y: pt.y - anchorY / 2, r: 11, record: r, isPanel: false });
             }
-
-            const key = `${Math.floor(pt.x / gridSize)}:${Math.floor(pt.y / gridSize)}`;
-            let bucket = hitGrid.get(key);
-            if (!bucket) hitGrid.set(key, bucket = []);
-            bucket.push({ x: pt.x, y: isPanel ? pt.y : (pt.y - anchorY / 2), r: isPanel ? (pRadius + 4) : 11, record: r, isPanel });
           }
 
           const opacity = activePanelKey ? 0.22 : 1.0;
