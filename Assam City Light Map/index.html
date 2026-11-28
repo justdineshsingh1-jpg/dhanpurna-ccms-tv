@@ -1803,7 +1803,7 @@
           contractor: colContractor ? String(r[colContractor] || '').trim() : '',
           team: colTeam ? String(r[colTeam] || '').trim() : '',
           photoUrl: /^https?:\/\//i.test(photoUrl) ? photoUrl : '',
-          searchStr: `${city} ${lane} ${panel} ${rawItem} ${rawStatus}`.toLowerCase()
+          searchStr: `${city} ${city.replace('-', ' ')} ${lane} ${panel} ${rawItem} ${rawStatus}`.toLowerCase()
         });
       }
       return clean;
@@ -1890,8 +1890,12 @@
         return;
       }
 
+      const normQ = query.replace(/[^a-z0-9]+/g, ' ').trim();
       const matchedCities = searchCatalog.cities
-        .filter(c => c.name.toLowerCase().includes(query))
+        .filter(c => {
+          const normName = c.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+          return normName.includes(normQ) || c.name.toLowerCase().includes(query);
+        })
         .slice(0, 5);
 
       const matchedPanels = searchCatalog.panels
@@ -2683,7 +2687,15 @@
       if (byId('sidebarBackdrop')) byId('sidebarBackdrop').addEventListener('click', toggleDashboardPanels);
 
       byId('renderModeSelect').addEventListener('change', () => applyFilters(false));
-      byId('citySelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
+      byId('citySelect').addEventListener('change', () => {
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        clearActiveCircuit(false);
+        applyFilters(true);
+        if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+          toggleDashboardPanels();
+        }
+      });
       byId('statusSelect').addEventListener('change', () => applyFilters(false));
       byId('clearCircuitBtn').addEventListener('click', () => clearActiveCircuit(true));
 
@@ -2754,8 +2766,13 @@
         const btn = e.target.closest('[data-city]');
         if (!btn) return;
         byId('citySelect').value = btn.dataset.city;
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
         clearActiveCircuit(false);
         applyFilters(true);
+        if (window.innerWidth <= 768 && !document.body.classList.contains('dashboard-hidden')) {
+          toggleDashboardPanels();
+        }
       });
 
       // Road Search Input
@@ -2849,11 +2866,11 @@
       });
 
       byId('citySelect').innerHTML = `<option value="">All 11 Cities (${allRecords.length.toLocaleString()} assets)</option>` +
-        cities.map(c => `<option value="${esc(c)}">${esc(c)} (${counts.get(c).toLocaleString()})</option>`).join('');
+        cities.map(c => `<option value="${esc(c)}">${esc(c.replace('-', ' '))} (${counts.get(c).toLocaleString()})</option>`).join('');
 
       const chips = cities.filter(c => c !== 'Unassigned');
       byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city=""><span>All Cities</span> <span class="city-chip-cnt">(${allRecords.length.toLocaleString()})</span></button>` +
-        chips.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}"><span>${esc(c)}</span> <span class="city-chip-cnt">(${counts.get(c).toLocaleString()})</span></button>`).join('');
+        chips.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}"><span>${esc(c.replace('-', ' '))}</span> <span class="city-chip-cnt">(${counts.get(c).toLocaleString()})</span></button>`).join('');
     }
 
     function applyFilters(zoomToFit) {
@@ -2923,7 +2940,13 @@
           if (p.lng < minLng) minLng = p.lng;
           if (p.lng > maxLng) maxLng = p.lng;
         }
-        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [40, 40], maxZoom: 17, animate: true });
+        const targetBounds = L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
+        if (city) {
+          map.flyToBounds(targetBounds, { padding: [50, 50], maxZoom: 16, duration: 1.2 });
+          showToast(`📍 Focused on ${city.replace('-', ' ')} (${filteredList.length.toLocaleString()} assets)`);
+        } else {
+          map.fitBounds(targetBounds, { padding: [40, 40], maxZoom: 16, animate: true });
+        }
       }
 
       const mode = byId('renderModeSelect').value;
@@ -2948,12 +2971,13 @@
       const bounds = map.getBounds().pad(0.15);
       const visible = [];
       const activeCircuitRecords = [];
+      const currentCity = byId('citySelect').value;
 
       for (let i = 0; i < filteredList.length; i++) {
         const r = filteredList[i];
         if (activePanelKey && r.panelKey === activePanelKey) {
           activeCircuitRecords.push(r);
-        } else if (bounds.contains([r.lat, r.lng])) {
+        } else if (currentCity || bounds.contains([r.lat, r.lng])) {
           visible.push(r);
         }
       }
