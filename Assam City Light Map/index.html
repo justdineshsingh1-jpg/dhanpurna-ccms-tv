@@ -605,8 +605,59 @@
       font-weight: 650;
       color: #334155;
     }
-    .legend-item { display: flex; align-items: center; gap: 7px; }
-    .legend-svg { width: 22px; height: 22px; display: grid; place-items: center; flex-shrink: 0; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      border: 1.5px solid transparent;
+      background: transparent;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 650;
+      color: #334155;
+      text-align: left;
+      transition: background .15s, border-color .15s, box-shadow .15s, transform .12s;
+    }
+    .legend-item:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+    .legend-item.active {
+      background: #eff6ff;
+      border-color: #0284c7;
+      color: #0369a1;
+      font-weight: 800;
+      box-shadow: 0 1px 6px rgba(2, 132, 199, .22);
+    }
+    .legend-item:focus-visible {
+      outline: 2px solid #0284c7;
+      outline-offset: 1px;
+    }
+    .legend-svg { width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0; }
+    .legend-svg svg { width: 22px; height: 22px; display: block; }
+
+    /* Interactive Top & Sidebar Stat Cards */
+    .top-stat, .stat {
+      cursor: pointer;
+      user-select: none;
+      transition: all .15s ease;
+    }
+    .top-stat:hover, .stat:hover {
+      border-color: #0284c7;
+      background: #f0f9ff;
+      transform: translateY(-1px);
+    }
+    .top-stat.active, .stat.active {
+      border-color: #0284c7 !important;
+      background: #e0f2fe !important;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, .25) !important;
+    }
 
     /* Road Search & List */
     .section-title {
@@ -1093,6 +1144,7 @@
     let map, baseLayers, currentBaseKey = 'googleStreet';
     let fullPointLayer, canvasDotLayer, clusterLayer, circuitLayer;
     let activePanelKey = '';
+    let activeLegendFilter = '';
     let searchTimer = null;
     let moveRenderTimer = null;
     let allRoadEntries = [];
@@ -1171,16 +1223,20 @@
 
     function buildLegend() {
       const items = [
-        { svg: SVG_ICONS.panel, label: 'Panel' },
-        { svg: SVG_ICONS.lightWorking, label: 'Light' },
-        { svg: SVG_ICONS.singleDecorative, label: 'Single Decorative' },
-        { svg: SVG_ICONS.doubleDecorative, label: 'Double Decorative' },
-        { svg: SVG_ICONS.lightFaulty, label: 'Not Working' },
-        { svg: SVG_ICONS.pole, label: 'Pole' }
+        { svg: SVG_ICONS.panel, label: 'Panel', key: 'panel' },
+        { svg: SVG_ICONS.lightWorking, label: 'Light', key: 'light' },
+        { svg: SVG_ICONS.singleDecorative, label: 'Single Decorative', key: 'single-decorative' },
+        { svg: SVG_ICONS.doubleDecorative, label: 'Double Decorative', key: 'double-decorative' },
+        { svg: SVG_ICONS.lightFaulty, label: 'Not Working', key: 'faulty' },
+        { svg: SVG_ICONS.pole, label: 'Pole', key: 'pole' }
       ];
-      byId('customLegend').innerHTML = items.map(i =>
-        `<div class="legend-item"><span class="legend-svg">${i.svg}</span><span>${i.label}</span></div>`
-      ).join('');
+      byId('customLegend').innerHTML = items.map(i => {
+        const isAct = activeLegendFilter === i.key;
+        return `<button type="button" class="legend-item ${isAct ? 'active' : ''}" data-legend-key="${i.key}" title="Click to filter & highlight all ${i.label}s" aria-pressed="${isAct}">
+          <span class="legend-svg">${i.svg}</span>
+          <span>${i.label}</span>
+        </button>`;
+      }).join('');
     }
 
     // =========================================================================
@@ -2204,10 +2260,97 @@
         byId('statusSelect').value = 'all';
         byId('roadSearchInput').value = '';
         byId('clearRoadSearch').style.display = 'none';
+        activeLegendFilter = '';
         clearActiveCircuit(false);
         applyFilters(true);
         showToast('↻ Dashboard filters refreshed to all Assam cities');
       });
+
+      // Click on Legend Items to Highlight Related Items
+      byId('customLegend').addEventListener('click', e => {
+        const btn = e.target.closest('.legend-item[data-legend-key]');
+        if (!btn) return;
+        const key = btn.dataset.legendKey;
+        if (activeLegendFilter === key) {
+          activeLegendFilter = '';
+          showToast('Showing all map assets');
+        } else {
+          activeLegendFilter = key;
+          const msgMap = {
+            'panel': '⚡ Showing all Panels',
+            'light': '💡 Showing all Street Lights',
+            'single-decorative': '● Showing Single Decorative lights',
+            'double-decorative': '● Showing Double Decorative lights',
+            'faulty': '⚠️ Showing all Not Working (Faulty) lights',
+            'pole': 'Showing poles'
+          };
+          showToast(msgMap[key] || `Filtering by ${key}`);
+        }
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      // Click on Top Stat Cards to Highlight
+      const topLights = byId('topStatLights');
+      if (topLights) {
+        topLights.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'light' ? '' : 'light';
+          showToast(activeLegendFilter === 'light' ? '💡 Showing all street lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const topPanels = byId('topStatPanels');
+      if (topPanels) {
+        topPanels.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'panel' ? '' : 'panel';
+          showToast(activeLegendFilter === 'panel' ? '⚡ Showing all Panels' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const topFaults = byId('topStatFaults');
+      if (topFaults) {
+        topFaults.closest('.top-stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'faulty' ? '' : 'faulty';
+          showToast(activeLegendFilter === 'faulty' ? '⚠️ Showing all Not Working lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      // Click on Sidebar Stat Cards to Highlight
+      const sideLights = byId('statLights');
+      if (sideLights) {
+        sideLights.closest('.stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'light' ? '' : 'light';
+          showToast(activeLegendFilter === 'light' ? '💡 Showing all street lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const sidePanels = byId('statPanels');
+      if (sidePanels) {
+        sidePanels.closest('.stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'panel' ? '' : 'panel';
+          showToast(activeLegendFilter === 'panel' ? '⚡ Showing all Panels' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
+
+      const sideFaults = byId('statFaults');
+      if (sideFaults) {
+        sideFaults.closest('.stat').addEventListener('click', () => {
+          activeLegendFilter = activeLegendFilter === 'faulty' ? '' : 'faulty';
+          showToast(activeLegendFilter === 'faulty' ? '⚠️ Showing all Not Working lights' : 'Showing all map assets');
+          clearActiveCircuit(false);
+          applyFilters(true);
+        });
+      }
 
       // Fullscreen Button
       byId('fullscreenBtn').addEventListener('click', () => {
@@ -2413,10 +2556,49 @@
       });
       byId('activeCityCountLabel').textContent = city || 'All 11 Cities';
 
+      // Update active visual state on legend buttons
+      document.querySelectorAll('.legend-item[data-legend-key]').forEach(btn => {
+        const isAct = btn.dataset.legendKey === activeLegendFilter;
+        btn.classList.toggle('active', isAct);
+        btn.setAttribute('aria-pressed', String(isAct));
+      });
+
+      // Update active visual state on top stats & sidebar stats
+      const topLightsEl = byId('topStatLights');
+      if (topLightsEl) topLightsEl.closest('.top-stat').classList.toggle('active', activeLegendFilter === 'light');
+      const topPanelsEl = byId('topStatPanels');
+      if (topPanelsEl) topPanelsEl.closest('.top-stat').classList.toggle('active', activeLegendFilter === 'panel');
+      const topFaultsEl = byId('topStatFaults');
+      if (topFaultsEl) topFaultsEl.closest('.top-stat').classList.toggle('active', activeLegendFilter === 'faulty');
+
+      const sideLightsEl = byId('statLights');
+      if (sideLightsEl) sideLightsEl.closest('.stat').classList.toggle('active', activeLegendFilter === 'light');
+      const sidePanelsEl = byId('statPanels');
+      if (sidePanelsEl) sidePanelsEl.closest('.stat').classList.toggle('active', activeLegendFilter === 'panel');
+      const sideFaultsEl = byId('statFaults');
+      if (sideFaultsEl) sideFaultsEl.closest('.stat').classList.toggle('active', activeLegendFilter === 'faulty');
+
       filteredList = allRecords.filter(r => {
         if (city && r.city !== city) return false;
         if (status !== 'all' && r.stState !== status) return false;
         if (query && !r.searchStr.includes(query)) return false;
+
+        // Interactive Icon / Legend Highlighting
+        if (activeLegendFilter) {
+          if (activeLegendFilter === 'light') {
+            if (r.kind === 'panel' || r.kind === 'pole') return false;
+          } else if (activeLegendFilter === 'panel') {
+            if (r.kind !== 'panel') return false;
+          } else if (activeLegendFilter === 'single-decorative') {
+            if (r.kind !== 'single-decorative') return false;
+          } else if (activeLegendFilter === 'double-decorative') {
+            if (r.kind !== 'double-decorative') return false;
+          } else if (activeLegendFilter === 'faulty') {
+            if (r.stState !== 'faulty') return false;
+          } else if (activeLegendFilter === 'pole') {
+            if (r.kind !== 'pole') return false;
+          }
+        }
         return true;
       });
 
