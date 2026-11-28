@@ -154,9 +154,33 @@
     .map-layer-btn[aria-pressed="true"]{background:#e8f2ff;color:#0b57d0}
     .map-layer-btn:focus-visible{outline:2px solid #0d6efd;outline-offset:1px}
     .map-search-control{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:650;width:min(520px,calc(100% - 210px))}
-    .map-search-control .search{height:42px;padding:0 40px 0 42px;border-color:#e5e7eb;background:rgba(255,255,255,.97);box-shadow:0 2px 8px rgba(15,23,42,.13);font-size:14px}
+    .map-search-control .search{height:42px;padding:0 74px 0 42px;border-color:#e5e7eb;background:rgba(255,255,255,.97);box-shadow:0 2px 8px rgba(15,23,42,.13);font-size:14px}
     .search-icon{position:absolute;left:14px;top:12px;width:18px;height:18px;color:#64748b;pointer-events:none}
-    .map-search-control .clear-search{top:7px;right:7px}
+    .map-search-control .clear-search{top:7px;right:40px}
+    .voice-search-btn{position:absolute;top:5px;right:6px;width:32px;height:32px;border-radius:50%;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s ease;z-index:5}
+    .voice-search-btn:hover{background:#e2e8f0;color:#0f172a;transform:scale(1.05)}
+    .voice-search-btn .mic-icon{width:16px;height:16px;pointer-events:none;transition:transform .2s ease}
+    .voice-search-btn.listening{background:#ef4444;color:#fff;border-color:#dc2626;box-shadow:0 0 0 4px rgba(239,68,68,.28);animation:micPulse 1.4s infinite}
+    .voice-search-btn.listening .mic-pulse{position:absolute;inset:-4px;border-radius:50%;border:2px solid #ef4444;animation:rippleWave 1.4s infinite cubic-bezier(0,.2,.8,1);pointer-events:none}
+    .voice-search-btn.processing{background:#2563eb;color:#fff;border-color:#1d4ed8;animation:micPulse 1s infinite}
+    @keyframes micPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+    @keyframes rippleWave{0%{transform:scale(.9);opacity:1}100%{transform:scale(1.7);opacity:0}}
+
+    /* Voice Answer Popover Card */
+    .voice-answer-card{position:absolute;top:48px;left:0;right:0;background:rgba(255,255,255,.98);backdrop-filter:blur(8px);border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(15,23,42,.2),0 8px 10px -6px rgba(15,23,42,.1);padding:12px 14px;z-index:680;transition:all .25s ease;animation:slideDown .25s ease-out}
+    .voice-answer-card.hidden{display:none}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+    .voice-answer-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+    .voice-answer-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .voice-answer-icon{font-size:14px}
+    .voice-answer-close{border:none;background:transparent;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px}
+    .voice-answer-close:hover{background:#f1f5f9;color:#0f172a}
+    .voice-answer-body{font-size:13.5px;font-weight:600;color:#0f172a;line-height:1.45;margin-bottom:8px}
+    .voice-answer-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .voice-action-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;cursor:pointer;transition:all .15s ease}
+    .voice-action-btn:hover{background:#e2e8f0;color:#0f172a}
+    .voice-action-btn.primary{background:#0ea5e9;color:#fff;border-color:#0284c7}
+    .voice-action-btn.primary:hover{background:#0284c7}
     .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     .map-toast{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:700;pointer-events:none;background:rgba(15,23,42,.90);color:#fff;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:500;box-shadow:var(--shadow);max-width:85%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .map-toast.hidden{display:none}
@@ -318,7 +342,13 @@
         top:10px;left:10px;right:10px;width:auto;max-width:none;transform:none;
       }
       .map-search-control .search{
-        height:40px;font-size:13px;padding:0 36px 0 38px;
+        height:40px;font-size:13px;padding:0 68px 0 38px;
+      }
+      .map-search-control .clear-search{
+        right:36px;top:6px;
+      }
+      .voice-search-btn{
+        right:4px;top:4px;
       }
       .basemap-control{
         top:58px;left:10px;box-shadow:0 2px 6px rgba(0,0,0,.15);
@@ -454,7 +484,27 @@
             </svg>
             <input class="search" id="searchInput" type="text" placeholder="Search city, panel, road or location…" autocomplete="off" aria-autocomplete="list" aria-controls="searchDropdown">
             <button class="clear-search" id="clearSearch" type="button" title="Clear search" aria-label="Clear search">×</button>
+            <button class="voice-search-btn" id="voiceSearchBtn" type="button" title="Voice Search (e.g. 'how many lights in panel 45')" aria-label="Voice search">
+              <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" x2="12" y1="19" y2="22"/>
+              </svg>
+              <span class="mic-pulse"></span>
+            </button>
             <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
+          </div>
+          <!-- Voice Assistant Answer Card -->
+          <div class="voice-answer-card hidden" id="voiceAnswerCard" role="status" aria-live="polite">
+            <div class="voice-answer-header">
+              <div class="voice-answer-title">
+                <span class="voice-answer-icon" id="voiceAnswerIcon">🎤</span>
+                <span id="voiceQueryHeard">Listening...</span>
+              </div>
+              <button class="voice-answer-close" id="voiceAnswerClose" type="button" title="Close voice response">×</button>
+            </div>
+            <div class="voice-answer-body" id="voiceAnswerText"></div>
+            <div class="voice-answer-actions" id="voiceAnswerActions"></div>
           </div>
         </div>
 
@@ -503,7 +553,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v23';
+    const DB_KEY = 'bundled_or_custom_v24';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1493,6 +1543,374 @@
           activatePanelCircuit(btn.dataset.panelKey, false);
         }
       });
+
+      initVoiceAssistant();
+    }
+
+    // =========================================================================
+    // 4B. VOICE ASSISTANT ENGINE (NATURAL LANGUAGE FOR GUWAHATI MAP)
+    // =========================================================================
+    let voiceCardTimeout = null;
+    let isListeningVoice = false;
+
+    const WORD_TO_NUM = {
+      'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+      'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+      'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19,
+      'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60,
+      'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100
+    };
+
+    function parseNumberInText(text) {
+      const directMatch = text.match(/\b\d+\b/);
+      if (directMatch) return parseInt(directMatch[0], 10);
+      const words = text.toLowerCase().split(/[\s-]+/);
+      let current = 0;
+      let found = false;
+      for (const w of words) {
+        if (WORD_TO_NUM[w] !== undefined) {
+          found = true;
+          const n = WORD_TO_NUM[w];
+          if (n === 100) current = (current || 1) * 100;
+          else current += n;
+        }
+      }
+      return found ? current : null;
+    }
+
+    function processVoiceQuery(raw) {
+      const query = raw.trim();
+      const lower = query.toLowerCase()
+        .replace(/[?,.!]+$/, '')
+        .trim();
+
+      // 1. Total lights or panels
+      if (/^(?:what is the\s+)?(?:total|all)\s*(?:lights?|assets?|panels?)\b/i.test(lower) || /^how many\s+(?:total\s+)?(?:lights?|panels?)\s*(?:are\s+there\s*)?(?:in\s+total|overall|altogether|in\s+guwahati)?$/i.test(lower) || /^(?:total|all)\s*$/i.test(lower)) {
+        return {
+          type: 'total',
+          speech: `There are 39,154 total lights across 359 CCMS panels in Guwahati.`,
+          answer: `💡 <strong>39,154</strong> total lights across <strong>359</strong> CCMS panels in Guwahati.`,
+          action: 'show_all'
+        };
+      }
+
+      // 2. Panel query: e.g. "how many light are connected at panel no 45", "panel 45", "panel no 10"
+      if (lower.includes('panel') || lower.includes('ccms')) {
+        const num = parseNumberInText(lower);
+        if (num !== null) {
+          const match = searchCatalog.panels.find(p => {
+            const pNumMatch = p.label.match(/panel\s*[-–—:]?\s*(\d+)/i);
+            return pNumMatch && parseInt(pNumMatch[1], 10) === num;
+          });
+          if (match) {
+            const lights = lightCountsByPanel.get(match.key) || match.count || 0;
+            const loc = match.lane ? ` at ${match.lane}` : '';
+            return {
+              type: 'panel',
+              panelKey: match.key,
+              panelLabel: match.label,
+              panelNum: num,
+              lights: lights,
+              speech: `Panel ${num} has ${lights} connected lights${loc}.`,
+              answer: `⚡ <strong>Panel ${num}</strong> (${match.label}) has <strong>${lights}</strong> connected lights${loc}.`,
+              action: 'activate_panel'
+            };
+          }
+        }
+      }
+
+      // 3. Phase query
+      for (const [phaseName, count] of Object.entries(CANONICAL_PHASE_COUNTS)) {
+        const pLower = phaseName.toLowerCase();
+        let isPhaseMatch = false;
+        if (pLower === 'main road') {
+          isPhaseMatch = /^(?:phase\s+)?main\s+road(?:\s+phase)?$/i.test(lower) || /how many\s+lights?\s+(?:in|under)\s+(?:the\s+)?main\s+road\s+phase/i.test(lower);
+        } else {
+          isPhaseMatch = lower.includes(pLower);
+        }
+        if (isPhaseMatch) {
+          return {
+            type: 'phase',
+            phase: phaseName,
+            count: count,
+            speech: `${phaseName} has ${count.toLocaleString()} lights in Guwahati.`,
+            answer: `🏷️ <strong>${phaseName}</strong> has <strong>${count.toLocaleString()}</strong> lights in Guwahati.`,
+            action: 'filter_phase'
+          };
+        }
+      }
+
+      // 4. Ward query
+      const wardMatch = lower.match(/ward\s*(?:no\.?|number)?\s*(\d+)/i);
+      if (wardMatch) {
+        const wardNum = wardMatch[1];
+        const wardLights = allRecords.filter(r => r.kind !== 'panel' && r.ward === wardNum).length;
+        return {
+          type: 'ward',
+          ward: wardNum,
+          count: wardLights,
+          speech: `Ward ${wardNum} has ${wardLights.toLocaleString()} lights.`,
+          answer: `📍 <strong>Ward ${wardNum}</strong> has <strong>${wardLights.toLocaleString()}</strong> lights.`,
+          action: 'filter_ward'
+        };
+      }
+
+      // 5. Clean common question prefixes to get target location / road / area
+      let cleaned = lower
+        .replace(/^.*?(?:how many lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|how lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|lights? (?:are )?(?:at|in|on|near)|is there any light (?:at|in|on|near)?|show me(?: lights? (?:at|in|on|near)?)?|find(?: lights? (?:at|in|on|near)?)?|search(?: for)?|where is|tell me about)\s+/i, '')
+        .replace(/[?.!]+$/, '')
+        .trim();
+
+      if (cleaned.length >= 3) {
+        // Check if cleaned matches an exact road label
+        const exactRoad = searchCatalog.roads.find(r => r.label.toLowerCase() === cleaned);
+        if (exactRoad) {
+          return {
+            type: 'road',
+            roadLabel: exactRoad.label,
+            count: exactRoad.count,
+            speech: `Found ${exactRoad.count} lights on ${exactRoad.label}.`,
+            answer: `🛣️ <strong>${exactRoad.label}</strong>: <strong>${exactRoad.count}</strong> lights connected.`,
+            action: 'filter_road',
+            searchTerm: exactRoad.label
+          };
+        }
+
+        // Check token matching across roads (e.g. "Sri Mahanta Sankardev path, Bhaskar Nagar")
+        const tokens = cleaned.split(/[, ]+/).filter(t => t.length > 2 && !['near', 'path', 'road', 'main', 'lane'].includes(t));
+        if (tokens.length >= 2) {
+          const tokenRoad = searchCatalog.roads.find(r => {
+            const rLower = r.label.toLowerCase();
+            return tokens.every(t => rLower.includes(t));
+          });
+          if (tokenRoad) {
+            return {
+              type: 'road',
+              roadLabel: tokenRoad.label,
+              count: tokenRoad.count,
+              speech: `Found ${tokenRoad.count} lights on ${tokenRoad.label}.`,
+              answer: `🛣️ <strong>${tokenRoad.label}</strong>: <strong>${tokenRoad.count}</strong> lights connected.`,
+              action: 'filter_road',
+              searchTerm: tokenRoad.label
+            };
+          }
+        }
+
+        // Area / Multi-point Location Match across allRecords
+        // e.g. "near Satgaon Main road", "Satgaon", "Bhaskar Nagar", "Zoo road", "Panjabari", "Dispur"
+        const searchTokens = cleaned.split(/[, ]+/).filter(t => t.length > 2 && !['near', 'the', 'area'].includes(t));
+        if (searchTokens.length > 0) {
+          const matchedRecords = allRecords.filter(r => {
+            return searchTokens.every(t => r.searchStr.includes(t));
+          });
+          const lightMatches = matchedRecords.filter(r => r.kind !== 'panel');
+          if (lightMatches.length > 0) {
+            const panelSet = new Set(lightMatches.map(r => r.panel).filter(Boolean));
+            const prettyName = cleaned.replace(/\b\w/g, l => l.toUpperCase());
+            const panelSuffix = panelSet.size > 0 ? ` across ${panelSet.size} CCMS panel${panelSet.size > 1 ? 's' : ''}` : '';
+            return {
+              type: 'area',
+              searchTerm: cleaned,
+              count: lightMatches.length,
+              panelsCount: panelSet.size,
+              speech: `Found ${lightMatches.length} lights near ${prettyName}${panelSuffix}.`,
+              answer: `📍 Found <strong>${lightMatches.length.toLocaleString()}</strong> lights near <strong>${prettyName}</strong>${panelSet.size > 0 ? ` across <strong>${panelSet.size}</strong> panels` : ''}.`,
+              action: 'filter_search'
+            };
+          }
+        }
+      }
+
+      // 6. Fallback General Search
+      const fallbackMatches = allRecords.filter(r => r.searchStr.includes(lower));
+      const lightCount = fallbackMatches.filter(r => r.kind !== 'panel').length;
+      if (lightCount > 0) {
+        return {
+          type: 'search',
+          searchTerm: query,
+          count: lightCount,
+          speech: `Found ${lightCount} lights matching ${query}.`,
+          answer: `🔍 Found <strong>${lightCount.toLocaleString()}</strong> lights matching "<em>${query}</em>".`,
+          action: 'filter_search'
+        };
+      }
+
+      return {
+        type: 'not_found',
+        searchTerm: query,
+        speech: `Sorry, I couldn't find any lights matching ${query} in Guwahati.`,
+        answer: `❓ No lights or panels found matching "<em>${query}</em>" in Guwahati.`,
+        action: 'none'
+      };
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.lang === 'en-IN' || v.name.includes('India'))
+          || voices.find(v => v.lang.startsWith('en'))
+          || voices[0];
+        if (preferredVoice) utterance.voice = preferredVoice;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn('Speech synthesis error:', e);
+      }
+    }
+
+    function showVoiceAnswer(title, bodyHtml, actionButtonsHtml = '', autoDismiss = 14000) {
+      const card = byId('voiceAnswerCard');
+      const titleEl = byId('voiceQueryHeard');
+      const bodyEl = byId('voiceAnswerText');
+      const actionsEl = byId('voiceAnswerActions');
+      if (!card || !titleEl || !bodyEl) return;
+
+      titleEl.innerHTML = title;
+      bodyEl.innerHTML = bodyHtml;
+      if (actionsEl) actionsEl.innerHTML = actionButtonsHtml;
+      card.classList.remove('hidden');
+
+      clearTimeout(voiceCardTimeout);
+      if (autoDismiss > 0) {
+        voiceCardTimeout = setTimeout(() => {
+          card.classList.add('hidden');
+        }, autoDismiss);
+      }
+    }
+
+    function initVoiceAssistant() {
+      const voiceBtn = byId('voiceSearchBtn');
+      const closeBtn = byId('voiceAnswerClose');
+      const card = byId('voiceAnswerCard');
+      if (!voiceBtn) return;
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        voiceBtn.title = 'Voice search not supported in this browser (use Chrome or Edge)';
+        voiceBtn.addEventListener('click', () => {
+          showToast('🎤 Voice recognition requires Google Chrome or Microsoft Edge.');
+        });
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 2;
+      recognition.lang = 'en-IN';
+
+      recognition.onstart = () => {
+        isListeningVoice = true;
+        voiceBtn.classList.remove('processing');
+        voiceBtn.classList.add('listening');
+        voiceBtn.title = 'Listening... Speak now';
+        byId('searchInput').placeholder = '🎙️ Listening... speak now (e.g. "lights in panel 45")';
+        showVoiceAnswer('🎙️ Listening...', 'Please speak your question, e.g.: <em>"How many lights in panel 45?"</em> or <em>"How many lights near Satgaon Main Road?"</em>', '', 0);
+      };
+
+      recognition.onresult = event => {
+        voiceBtn.classList.remove('listening');
+        voiceBtn.classList.add('processing');
+        const rawTranscript = event.results[0][0].transcript;
+        const result = processVoiceQuery(rawTranscript);
+
+        let actionBtns = '';
+        if (result.type === 'panel') {
+          actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnTrace">⚡ Trace Feeder</button>`;
+        } else if (result.type === 'road' || result.type === 'area' || result.type === 'search') {
+          actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnZoom">📍 Focus Map</button>`;
+        }
+        actionBtns += `<button class="voice-action-btn" type="button" id="voiceBtnSpeak">🔊 Listen</button>`;
+
+        showVoiceAnswer(`🎤 Heard: "${esc(rawTranscript)}"`, result.answer, actionBtns, 14000);
+
+        // Execute map action
+        if (result.action === 'activate_panel') {
+          byId('searchInput').value = `Panel ${result.panelNum}`;
+          byId('clearSearch').style.display = 'block';
+          activatePanelCircuit(result.panelKey, true);
+        } else if (result.action === 'filter_road' || result.action === 'filter_search') {
+          byId('searchInput').value = result.searchTerm;
+          byId('clearSearch').style.display = 'block';
+          clearActiveCircuit(false);
+          applyFilters(true);
+        } else if (result.action === 'filter_phase') {
+          if (byId('phaseSelect')) byId('phaseSelect').value = result.phase;
+          clearActiveCircuit(false);
+          applyFilters(true);
+        } else if (result.action === 'filter_ward') {
+          if (byId('wardSelect')) byId('wardSelect').value = result.ward;
+          clearActiveCircuit(false);
+          applyFilters(true);
+        } else if (result.action === 'show_all') {
+          resetAllFilters(false);
+          applyFilters(true);
+        }
+
+        // Speak answer aloud
+        speakText(result.speech);
+
+        // Bind card actions
+        const traceBtn = byId('voiceBtnTrace');
+        if (traceBtn && result.panelKey) {
+          traceBtn.addEventListener('click', () => activatePanelCircuit(result.panelKey, true));
+        }
+        const zoomBtn = byId('voiceBtnZoom');
+        if (zoomBtn) {
+          zoomBtn.addEventListener('click', () => applyFilters(true));
+        }
+        const speakBtn = byId('voiceBtnSpeak');
+        if (speakBtn) {
+          speakBtn.addEventListener('click', () => speakText(result.speech));
+        }
+      };
+
+      recognition.onerror = event => {
+        isListeningVoice = false;
+        voiceBtn.classList.remove('listening', 'processing');
+        voiceBtn.title = 'Search by Voice';
+        byId('searchInput').placeholder = 'Search city, panel, road or location…';
+        if (event.error === 'not-allowed') {
+          showVoiceAnswer('⚠️ Microphone Permission Blocked', 'Please allow microphone access in your browser to use voice search.');
+        } else if (event.error !== 'no-speech') {
+          showVoiceAnswer('⚠️ Voice Recognition Error', `Could not hear clearly (${event.error}). Click the microphone to try again.`);
+        } else {
+          showVoiceAnswer('⚠️ No Speech Detected', 'Click the microphone button and speak your question.');
+        }
+      };
+
+      recognition.onend = () => {
+        isListeningVoice = false;
+        voiceBtn.classList.remove('listening', 'processing');
+        voiceBtn.title = 'Search by Voice';
+        byId('searchInput').placeholder = 'Search city, panel, road or location…';
+      };
+
+      voiceBtn.addEventListener('click', () => {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        if (isListeningVoice) {
+          recognition.stop();
+        } else {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn('Recognition start error:', e);
+          }
+        }
+      });
+
+      if (closeBtn && card) {
+        closeBtn.addEventListener('click', () => {
+          if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+          card.classList.add('hidden');
+        });
+      }
     }
 
     function normalizePhase(val) {
