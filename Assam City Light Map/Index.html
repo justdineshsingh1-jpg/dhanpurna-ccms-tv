@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Assam City Street Light Map · GIS Live Tracking</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --paper: #ffffff;
+      --canvas: #f8fafc;
+      --line: #e2e8f0;
+      --blue: #0284c7;
+      --blue-hover: #0369a1;
+      --green: #16a34a;
+      --panel-orange: #ea580c;
+      --red: #dc2626;
+      --yellow: #f59e0b;
+      --purple: #7c3aed;
+      --shadow-sm: 0 1px 3px rgba(15,23,42,.08);
+      --shadow-md: 0 4px 14px rgba(15,23,42,.10);
+      --shadow-lg: 0 10px 28px rgba(15,23,42,.15);
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+      overflow: hidden;
+    }
+    .app {
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    /* Top Navigation Header */
+    .topbar {
+      min-height: 64px;
+      background: var(--paper);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 18px;
+      z-index: 500;
+      box-shadow: var(--shadow-sm);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+      display: grid;
+      place-items: center;
+      color: var(--blue);
+      box-shadow: 0 2px 6px rgba(2,132,199,.2);
+      flex-shrink: 0;
+    }
+    .brand-title {
+      display: flex;
+      flex-direction: column;
+    }
+    .brand h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: #0f172a;
+    }
+    .brand p {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin: 1px 0 0;
+      font-weight: 500;
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    /* Header Stat Pills */
+    .top-stats {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .top-stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 5px 12px;
+      min-height: 40px;
+    }
+    .top-stat-icon {
+      font-size: 17px;
+      line-height: 1;
+    }
+    .top-stat-icon.panel-icon-p {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--panel-orange);
+      color: #fff;
+      font-weight: 800;
+      font-size: 12px;
+      box-shadow: 0 2px 4px rgba(234,88,12,.3);
+    }
+    .top-stat-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .top-stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      line-height: 1.1;
+    }
+    .top-stat-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .top-stat-value.green { color: var(--green); }
+    .top-stat-value.red { color: var(--red); }
+
+    .btn {
+      height: 38px;
+      padding: 0 13px;
+      border-radius: 9px;
+      font-weight: 650;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      transition: all .15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .btn-primary:hover {
+      background: var(--blue-hover);
+      border-color: var(--blue-hover);
+    }
+
+    /* Workspace Layout */
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      position: relative;
+    }
+    .sidebar {
+      background: var(--paper);
+      border-right: 1px solid var(--line);
+      overflow-y: auto;
+      padding: 16px;
+      z-index: 400;
+      scrollbar-width: thin;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+    .stat-label {
+      display: block;
+      font-size: 10.5px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .stat-value {
+      display: block;
+      margin-top: 3px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+    }
+    .stat-value.red { color: var(--red); }
+    .stat-value.green { color: var(--green); }
+
+    .field-label {
+      display: block;
+      color: #475569;
+      font-size: 11.5px;
+      font-weight: 750;
+      margin: 8px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Search Box Container with Voice Assistant */
+    .search-box-wrap {
+      position: relative;
+    }
+    .search-input-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-input-inner .search-icon {
+      position: absolute;
+      left: 12px;
+      width: 17px;
+      height: 17px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    .search {
+      width: 100%;
+      height: 42px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0 74px 0 36px;
+      font-size: 13.5px;
+      outline: none;
+      background: var(--paper);
+      color: var(--ink);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3.5px rgba(2, 132, 199, .15);
+    }
+    .search-btn-group {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .clear-search {
+      width: 26px;
+      height: 26px;
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      display: none;
+      font-size: 18px;
+      line-height: 1;
+      border-radius: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+    .clear-search:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* Voice Search Button & Animations */
+    .voice-search-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: #f1f5f9;
+      color: #475569;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .2s ease;
+      position: relative;
+    }
+    .voice-search-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      transform: scale(1.05);
+    }
+    .voice-search-btn.listening {
+      background: #dc2626 !important;
+      color: #ffffff !important;
+      animation: micPulse 1.2s infinite alternate;
+      border-color: #b91c1c;
+      box-shadow: 0 0 12px rgba(220, 38, 38, .6);
+    }
+    .voice-search-btn.processing {
+      background: #0284c7 !important;
+      color: #ffffff !important;
+      animation: micRotate 1s linear infinite;
+    }
+    .voice-search-btn.success {
+      background: #16a34a !important;
+      color: #ffffff !important;
+    }
+    .voice-search-btn.error {
+      background: #dc2626 !important;
+      color: #ffffff !important;
+    }
+    @keyframes micPulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .6); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+      100% { transform: scale(1.1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+    @keyframes micRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Voice Feedback Floating Card */
+    .voice-card {
+      margin-top: 8px;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow-md);
+      transition: all .2s ease;
+    }
+    .voice-card.hidden { display: none; }
+    .voice-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .voice-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1.2;
+    }
+    .voice-status-badge.idle { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .voice-status-badge.listening { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .voice-status-badge.processing { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .voice-status-badge.success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .voice-status-badge.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    .voice-tools {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .voice-tool-btn {
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      cursor: pointer;
+      transition: .15s;
+    }
+    .voice-tool-btn:hover { background: #e2e8f0; }
+    .voice-close-btn {
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .voice-close-btn:hover { background: #e2e8f0; color: #0f172a; }
+
+    .voice-card-body {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.45;
+    }
+    .voice-subtext {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    /* Auto-Complete Dropdown */
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      z-index: 1200;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.15);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      max-height: 290px;
+      overflow-y: auto;
+      display: none;
+      padding: 4px 0;
+    }
+    .search-dropdown.show { display: block; }
+    .dropdown-header {
+      padding: 6px 12px 4px;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: #64748b;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .dropdown-header:first-child { border-top: none; }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 12px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      font-size: 12.5px;
+      color: #1e293b;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .dropdown-item:hover, .dropdown-item.active {
+      background: var(--blue);
+      color: #fff;
+    }
+    .dropdown-item:hover .item-badge, .dropdown-item.active .item-badge {
+      background: rgba(255,255,255,.25);
+      color: #fff;
+    }
+    .dropdown-item:hover .item-sub, .dropdown-item.active .item-sub {
+      color: rgba(255,255,255,.88);
+    }
+    .item-main { min-width: 0; flex: 1; }
+    .item-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; font-weight: 600; }
+    .item-sub { font-size: 11px; color: #64748b; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-badge {
+      flex-shrink: 0;
+      font-size: 10.5px;
+      font-weight: 750;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      color: #475569;
+    }
+    .dropdown-empty { padding: 12px; font-size: 12.5px; color: #64748b; text-align: center; }
+
+    /* City Navigator Chips */
+    .city-chips-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .city-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 1px 6px;
+      scrollbar-width: thin;
+    }
+    .city-chip {
+      flex: 0 0 auto;
+      padding: 6px 11px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 650;
+      color: #475569;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all .15s ease;
+    }
+    .city-chip:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+    .city-chip.active {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+      box-shadow: 0 2px 6px rgba(2, 132, 199, .25);
+    }
+    .city-chip-cnt {
+      font-size: 10px;
+      opacity: 0.85;
+      font-weight: 700;
+    }
+
+    /* Filter Controls */
+    .select-box {
+      height: 38px;
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 0 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    .filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+    }
+    .filter-row select {
+      height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0 8px;
+      font-size: 12px;
+      background: var(--paper);
+      max-width: 180px;
+    }
+
+    /* Active Circuit Banner */
+    .circuit-banner {
+      display: none;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #dcfce7;
+      border: 1.5px solid #86efac;
+      color: #14532d;
+      font-size: 12px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      box-shadow: 0 2px 6px rgba(22, 163, 74, .1);
+    }
+    .circuit-banner.active { display: flex; }
+    .circuit-reset {
+      border: 1px solid #16a34a;
+      background: #fff;
+      color: #15803d;
+      border-radius: 7px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .circuit-reset:hover { background: #16a34a; color: #fff; }
+
+    /* Legend */
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 11.5px;
+      font-weight: 650;
+      color: #334155;
+    }
+    .legend-item { display: flex; align-items: center; gap: 7px; }
+    .legend-svg { width: 22px; height: 22px; display: grid; place-items: center; flex-shrink: 0; }
+
+    /* Road Search & List */
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .section-title h3 { font-size: 12.5px; margin: 0; font-weight: 750; }
+    .section-title span { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .road-search-box {
+      position: relative;
+      margin-bottom: 6px;
+    }
+    .road-search-input {
+      width: 100%;
+      height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0 26px 0 10px;
+      font-size: 12px;
+      outline: none;
+    }
+    .road-search-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 15px;
+      display: none;
+    }
+    .road-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 220px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    .road-button {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 9px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      color: var(--ink);
+      transition: background .12s;
+    }
+    .road-button:hover { background: #f1f5f9; }
+    .road-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 550; }
+    .road-count { border-radius: 10px; padding: 2px 7px; background: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 750; }
+
+    /* Map Viewport & Controls */
+    .map-wrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: #e2e8f0;
+    }
+    #map { position: absolute; inset: 0; }
+
+    .basemap-control {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 650;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-md);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+    .basemap-control label { font-size: 11px; font-weight: 750; color: #475569; }
+    .basemap-select {
+      height: 30px;
+      border: 0;
+      background: transparent;
+      font-size: 12.5px;
+      font-weight: 700;
+      outline: none;
+      cursor: pointer;
+      color: #0f172a;
+    }
+
+    .map-toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 700;
+      pointer-events: none;
+      background: rgba(15, 23, 42, .92);
+      color: #fff;
+      border-radius: 24px;
+      padding: 8px 18px;
+      font-size: 12.5px;
+      font-weight: 600;
+      box-shadow: var(--shadow-lg);
+      max-width: 85%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity .2s;
+    }
+    .map-toast.hidden { display: none; }
+
+    .map-note {
+      position: absolute;
+      z-index: 500;
+      left: 14px;
+      bottom: 14px;
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Upload & Loading Overlay */
+    .upload-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 900;
+      background: rgba(248, 250, 252, .96);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .upload-overlay.hidden { display: none; }
+    .drop-card {
+      background: #fff;
+      border: 2px dashed #94a3b8;
+      border-radius: 18px;
+      padding: 36px 30px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
+    .drop-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 14px;
+      border-radius: 16px;
+      background: #e0f2fe;
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+    }
+    .drop-card h2 { margin: 0 0 8px; font-size: 19px; font-weight: 800; }
+    .drop-card p { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 14px;
+      display: none;
+    }
+    .progress-fill { height: 100%; width: 0%; background: var(--blue); transition: width .15s ease; }
+
+    /* Vector Icons & Circuit Glow */
+    .asset-svg-icon {
+      display: grid;
+      place-items: center;
+      transition: transform .18s ease, filter .18s ease;
+    }
+    .asset-svg-icon:hover { transform: scale(1.25); z-index: 999 !important; }
+    .asset-svg-icon.panel-active {
+      filter: drop-shadow(0 0 14px rgba(22, 163, 74, 1));
+      transform: scale(1.3) !important;
+      z-index: 1002 !important;
+    }
+    .asset-svg-icon.light-connected {
+      filter: drop-shadow(0 0 10px rgba(245, 158, 11, 1)) brightness(1.1);
+      transform: scale(1.22) !important;
+      z-index: 1001 !important;
+    }
+    .asset-svg-icon.marker-dimmed { opacity: .25; }
+    @keyframes circuitFlow { to { stroke-dashoffset: -24; } }
+    .circuit-flow-line { animation: circuitFlow .75s linear infinite; }
+
+    /* Popups */
+    .popup { min-width: 230px; max-width: 300px; }
+    .popup-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      margin: 0 0 8px;
+      padding-bottom: 6px;
+      border-bottom: 1.5px solid #e2e8f0;
+      color: #0f172a;
+    }
+    .popup-meta {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 4px 6px;
+      font-size: 11.5px;
+    }
+    .popup-key { color: #64748b; font-weight: 600; }
+    .popup-value { color: #1e293b; font-weight: 600; overflow-wrap: anywhere; }
+    .status-tag {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 10.5px;
+      font-weight: 750;
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .status-tag.bad { background: #fee2e2; color: #b91c1c; }
+    .status-tag.unknown { background: #f1f5f9; color: #475569; }
+    .popup-actions {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .popup-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      padding: 5px 10px;
+      color: var(--blue);
+      background: #fff;
+      font-size: 11.5px;
+      font-weight: 750;
+      text-decoration: none;
+      cursor: pointer;
+      transition: .15s;
+    }
+    .popup-btn.primary { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+    .popup-btn:hover { filter: brightness(.96); }
+
+    /* Responsive & Mobile Layout */
+    @media (max-width: 860px) {
+      .topbar { padding: 8px 12px; }
+      .brand p { display: none; }
+      .top-stats .top-stat:last-child { display: none; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .sidebar { max-height: 48dvh; border-right: 0; border-bottom: 1px solid var(--line); }
+      .basemap-control { top: 8px; right: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M9 18h6M10 22h4M12 2v1M4.2 4.2l.7.7M19.8 4.2l-.7.7M2 12h1M21 12h1M15.5 14a5 5 0 1 0-7 0c.6.6 1 1.4 1 2.2V17h5v-.8c0-.8.4-1.6 1-2.2z"/>
+          </svg>
+        </div>
+        <div class="brand-title">
+          <h1>Assam Street Light GIS Dashboard</h1>
+          <p id="fileMetaLabel">11 Municipalities · 9,512 Lights · 118 Panels</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <div class="top-stats">
+          <div class="top-stat" title="Total active street lights">
+            <span class="top-stat-icon">💡</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Total Lights</span>
+              <strong class="top-stat-value" id="topStatLights">9,512</strong>
+            </div>
+          </div>
+          <div class="top-stat" title="Total CCMS control panels">
+            <span class="top-stat-icon panel-icon-p">P</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Panels</span>
+              <strong class="top-stat-value" id="topStatPanels">118</strong>
+            </div>
+          </div>
+          <div class="top-stat" title="Not working / faulty lights">
+            <span class="top-stat-icon">⚠️</span>
+            <div class="top-stat-info">
+              <span class="top-stat-label">Not Working</span>
+              <strong class="top-stat-value red" id="topStatFaults">364</strong>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" id="refreshBtn" type="button" title="Reload data and map view">↻ Refresh</button>
+        <button class="btn" id="fullscreenBtn" type="button" title="Toggle Fullscreen on 80-inch TV">⛶ Fullscreen</button>
+        <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
+        <button class="btn btn-primary" type="button" onclick="document.getElementById('csvFileInput').click()" title="Upload a custom survey CSV">
+          ↑ Upload CSV
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar" id="sidebarPane">
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Filtered Assets</span><strong class="stat-value" id="statAssets">9,919</strong></div>
+          <div class="stat"><span class="stat-label">Total Lights</span><strong class="stat-value" id="statLights">9,512</strong></div>
+          <div class="stat"><span class="stat-label">Panels</span><strong class="stat-value green" id="statPanels">118</strong></div>
+          <div class="stat"><span class="stat-label">Not Working</span><strong class="stat-value red" id="statFaults">364</strong></div>
+        </div>
+
+        <div class="circuit-banner" id="circuitBanner">
+          <div>
+            <strong id="circuitBannerTitle">Panel Circuit Active</strong>
+            <div id="circuitBannerSub" style="font-size:11px;margin-top:2px;">Showing connected bye-lanes</div>
+          </div>
+          <button type="button" class="circuit-reset" id="clearCircuitBtn">Clear</button>
+        </div>
+
+        <!-- Search with Voice Assistant -->
+        <label class="field-label" for="searchInput">Search City, Panel or Road</label>
+        <div class="search-box-wrap" id="searchBoxContainer">
+          <div class="search-input-inner">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input class="search" id="searchInput" type="text" placeholder="Search city, panel, road... (Ctrl+Shift+V)" autocomplete="off">
+            <div class="search-btn-group">
+              <button class="clear-search" id="clearSearch" type="button" title="Clear search">×</button>
+              <button class="voice-search-btn" id="voiceSearchBtn" type="button" title="Voice Search (Ctrl+Shift+V)" aria-label="Voice search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
+
+          <!-- Voice Assistant Feedback Card -->
+          <div class="voice-card hidden" id="voiceCard" role="status" aria-live="polite">
+            <div class="voice-card-header">
+              <span class="voice-status-badge idle" id="voiceStatusBadge">🎤 Idle</span>
+              <div class="voice-tools">
+                <button class="voice-tool-btn" id="voiceMuteToggle" type="button" title="Voice Feedback: Enabled (Click to mute)">🔊</button>
+                <button class="voice-tool-btn" id="voiceLangToggle" type="button" title="Switch Voice Language">🇮🇳 EN</button>
+                <button class="voice-close-btn" id="voiceCloseBtn" type="button" title="Close voice card">×</button>
+              </div>
+            </div>
+            <div class="voice-card-body" id="voiceAnswerBody">Click the microphone to search hands-free.</div>
+            <div class="voice-subtext" id="voiceSubtext">Examples: "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"</div>
+          </div>
+        </div>
+
+        <!-- City Filter & Quick Chips -->
+        <div class="city-chips-wrap">
+          <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>City / Municipality (11)</span>
+            <span id="activeCityCountLabel" style="font-size:11px;color:var(--blue);font-weight:700;">All Cities</span>
+          </div>
+          <select class="select-box" id="citySelect"><option value="">All 11 Cities (9,919 assets)</option></select>
+          <div class="city-chips" id="cityChips"></div>
+        </div>
+
+        <div class="filter-row">
+          <label for="statusSelect">Light Status</label>
+          <select id="statusSelect">
+            <option value="all">All statuses</option>
+            <option value="working">Working</option>
+            <option value="faulty">Not working (Faulty)</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+
+        <div class="filter-row">
+          <label for="renderModeSelect">Render Mode</label>
+          <select id="renderModeSelect">
+            <option value="smart">Smart View (Anti-Hang)</option>
+            <option value="clustered">Clustered Groups</option>
+          </select>
+        </div>
+
+        <div class="legend" id="customLegend"></div>
+
+        <div class="section-title">
+          <h3>Roads &amp; Bye-Lanes</h3>
+          <span id="roadCountLabel"></span>
+        </div>
+        <div class="road-search-box">
+          <input type="text" class="road-search-input" id="roadSearchInput" placeholder="Filter road / bye-lane...">
+          <button type="button" class="road-search-clear" id="clearRoadSearch" title="Clear">×</button>
+        </div>
+        <div class="road-list" id="roadList"></div>
+      </aside>
+
+      <section class="map-wrap">
+        <div id="map"></div>
+
+        <div class="basemap-control">
+          <label for="mapMode">Map Layer</label>
+          <select class="basemap-select" id="mapMode">
+            <option value="googleStreet">Google Maps · Street</option>
+            <option value="googleSatellite">Google Maps · Satellite</option>
+            <option value="osm">OpenStreetMap · Street</option>
+          </select>
+        </div>
+
+        <div class="map-toast hidden" id="mapToast"></div>
+        <div class="map-note">💡 Click any <b>Green Panel</b> to trace circuit &amp; illuminate connected lights</div>
+
+        <!-- Initial Load / Upload Overlay -->
+        <div class="upload-overlay" id="uploadOverlay">
+          <div class="drop-card" id="dropCard">
+            <div class="drop-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+            </div>
+            <h2 id="overlayTitle">Loading Assam Street Light Inventory…</h2>
+            <p id="overlayDesc">Connecting to survey database across 11 municipalities...</p>
+            <button class="btn btn-primary" id="manualSelectBtn" type="button" style="display:none" onclick="document.getElementById('csvFileInput').click()">
+              Select CSV File
+            </button>
+            <div class="progress-bar" id="progressBar" style="display:block">
+              <div class="progress-fill" id="progressFill" style="width:40%"></div>
+            </div>
+            <div id="uploadStatusText" style="margin-top:10px;font-size:12px;color:#64748b;">Reading assets…</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    'use strict';
+
+    // =========================================================================
+    // 1. CONFIGURATION, CANONICAL STATS & CSV FILE PATHS
+    // =========================================================================
+    const PRIMARY_CSV_PATHS = [
+      './Multiple City(Outside Guwahati).csv',
+      './data.csv'
+    ];
+    const DB_NAME = 'AssamStreetLightDB_MultiCity';
+    const DB_STORE = 'datasets';
+    const DB_KEY = 'assam_cities_v3';
+
+    // Canonical totals across the 11 surveyed municipalities
+    const CANONICAL_TOTAL_LIGHTS = 9512;
+    const CANONICAL_TOTAL_PANELS = 118;
+    const CANONICAL_TOTAL_FAULTS = 364;
+
+    const ASSAM_CENTER = [26.4, 93.1];
+    const MAX_VIEWPORT_SVG_MARKERS = 2000;
+
+    let allRecords = [];
+    let filteredList = [];
+    let searchCatalog = { cities: [], panels: [], roads: [] };
+    let activeDropdownIdx = -1;
+
+    // High performance lookup tables for search & voice assistant (<0.05ms response)
+    const lookupCities = new Map();
+    const lookupPanels = new Map();
+    const lookupRoads = new Map();
+
+    let map, baseLayers, currentBaseKey = 'googleStreet';
+    let fullPointLayer, canvasDotLayer, clusterLayer, circuitLayer;
+    let activePanelKey = '';
+    let searchTimer = null;
+    let moveRenderTimer = null;
+    let allRoadEntries = [];
+
+    const byId = id => document.getElementById(id);
+
+    // =========================================================================
+    // 2. VECTOR SVG ICONS
+    // =========================================================================
+    const SVG_ICONS = {
+      panel: `<svg width="34" height="34" viewBox="0 0 40 40">
+        <rect x="4" y="4" width="32" height="32" rx="7" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/>
+        <rect x="9" y="9" width="22" height="22" rx="3" fill="none" stroke="#dcfce7" stroke-width="1.5"/>
+        <polygon points="21,11 14,21 20,21 18,29 26,18 20,18" fill="#facc15"/>
+      </svg>`,
+      lightWorking: `<svg width="26" height="26" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15" fill="#ffffff" stroke="#f59e0b" stroke-width="2.5"/>
+        <circle cx="18" cy="16" r="7" fill="#facc15"/>
+        <path d="M14 21 C14 23, 22 23, 22 21 L20 26 L16 26 Z" fill="#475569"/>
+        <line x1="18" y1="5" x2="18" y2="7" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="8" y1="10" x2="10" y2="11" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="28" y1="10" x2="26" y2="11" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+      </svg>`,
+      lightFaulty: `<svg width="26" height="26" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15" fill="#fee2e2" stroke="#dc2626" stroke-width="2.5"/>
+        <circle cx="18" cy="16" r="7" fill="#dc2626"/>
+        <path d="M14 21 C14 23, 22 23, 22 21 L20 26 L16 26 Z" fill="#475569"/>
+        <line x1="14" y1="12" x2="22" y2="20" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+        <line x1="22" y1="12" x2="14" y2="20" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+      </svg>`,
+      singleDecorative: `<svg width="30" height="30" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="16" fill="#0d9488" stroke="#ffffff" stroke-width="2"/>
+        <line x1="17" y1="11" x2="17" y2="30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M17 14 Q24 10 24 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="24" cy="16.5" r="3.5" fill="#facc15"/>
+        <circle cx="17" cy="9.5" r="2" fill="#ffffff"/>
+      </svg>`,
+      doubleDecorative: `<svg width="32" height="32" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="16" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+        <line x1="18" y1="10" x2="18" y2="30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M18 15 Q11 10 10 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <path d="M18 15 Q25 10 26 15" fill="none" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="10" cy="16.5" r="3.2" fill="#facc15"/>
+        <circle cx="26" cy="16.5" r="3.2" fill="#facc15"/>
+      </svg>`,
+      pole: `<svg width="24" height="24" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="15" fill="#334155" stroke="#ffffff" stroke-width="2"/>
+        <line x1="18" y1="8" x2="18" y2="28" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+        <line x1="11" y1="13" x2="25" y2="13" stroke="#f8fafc" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="13" y1="18" x2="23" y2="18" stroke="#f8fafc" stroke-width="2" stroke-linecap="round"/>
+      </svg>`
+    };
+
+    const ICON_POOL = {};
+    function getPooledIcon(kind, isFaulty, stateClass) {
+      const key = `${kind}|${isFaulty ? 'bad' : 'ok'}|${stateClass}`;
+      if (ICON_POOL[key]) return ICON_POOL[key];
+
+      let svg = SVG_ICONS.lightWorking;
+      let size = [26, 26];
+      if (kind === 'panel') { svg = SVG_ICONS.panel; size = [34, 34]; }
+      else if (kind === 'double-decorative') { svg = SVG_ICONS.doubleDecorative; size = [32, 32]; }
+      else if (kind === 'single-decorative') { svg = SVG_ICONS.singleDecorative; size = [30, 30]; }
+      else if (kind === 'pole') { svg = SVG_ICONS.pole; size = [24, 24]; }
+      else if (isFaulty) { svg = SVG_ICONS.lightFaulty; size = [26, 26]; }
+
+      ICON_POOL[key] = L.divIcon({
+        className: `asset-svg-icon ${stateClass}`,
+        html: svg,
+        iconSize: size,
+        iconAnchor: [size[0] / 2, size[1] / 2],
+        popupAnchor: [0, -(size[1] / 2)]
+      });
+      return ICON_POOL[key];
+    }
+
+    function buildLegend() {
+      const items = [
+        { svg: SVG_ICONS.panel, label: 'Panel' },
+        { svg: SVG_ICONS.lightWorking, label: 'Light' },
+        { svg: SVG_ICONS.singleDecorative, label: 'Single Decorative' },
+        { svg: SVG_ICONS.doubleDecorative, label: 'Double Decorative' },
+        { svg: SVG_ICONS.lightFaulty, label: 'Not Working' },
+        { svg: SVG_ICONS.pole, label: 'Pole' }
+      ];
+      byId('customLegend').innerHTML = items.map(i =>
+        `<div class="legend-item"><span class="legend-svg">${i.svg}</span><span>${i.label}</span></div>`
+      ).join('');
+    }
+
+    // =========================================================================
+    // 3. INDEXED-DB CACHE & INITIALIZATION
+    // =========================================================================
+    function openLocalDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveDatasetToCache(payload) {
+      try {
+        const db = await openLocalDB();
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(payload, DB_KEY);
+        return new Promise(res => { tx.oncomplete = res; tx.onerror = res; });
+      } catch (e) { console.warn('Cache save skipped:', e); }
+    }
+
+    async function loadDatasetFromCache() {
+      try {
+        const db = await openLocalDB();
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const req = tx.objectStore(DB_STORE).get(DB_KEY);
+        return new Promise(res => {
+          req.onsuccess = () => res(req.result || null);
+          req.onerror = () => res(null);
+        });
+      } catch (e) { return null; }
+    }
+
+    async function initApp() {
+      buildLegend();
+      initMap();
+      bindEvents();
+      setupVoiceSearch();
+
+      const cached = await loadDatasetFromCache();
+      if (cached && Array.isArray(cached.records) && cached.records.length > 0) {
+        allRecords = cached.records;
+        byId('uploadOverlay').classList.add('hidden');
+        updateHeaderInfo(cached.fileName, allRecords.length, cached.savedAt);
+        buildSearchCatalog();
+        buildCityControls();
+        applyFilters(true);
+      }
+
+      if (!cached || !cached.isCustomUpload) {
+        await autoFetchBundledCsv(cached);
+      }
+    }
+
+    async function autoFetchBundledCsv(existingCache = null) {
+      let csvUrl = null;
+      let remoteSig = '';
+
+      for (const candidate of PRIMARY_CSV_PATHS) {
+        try {
+          const headRes = await fetch(candidate, { method: 'HEAD', cache: 'no-cache' });
+          if (headRes.ok) {
+            csvUrl = candidate;
+            remoteSig = `${candidate}|${headRes.headers.get('etag') || ''}|${headRes.headers.get('last-modified') || ''}|${headRes.headers.get('content-length') || ''}`;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (!csvUrl) {
+        if (!existingCache || existingCache.records.length === 0) {
+          showManualUploadPrompt('Place "Multiple City(Outside Guwahati).csv" or "data.csv" in the folder, or select a file below.');
+        }
+        return;
+      }
+
+      if (existingCache && !existingCache.isCustomUpload && existingCache.signature === remoteSig && existingCache.records.length > 0) {
+        return; // Cache is already up to date
+      }
+
+      if (!existingCache) {
+        byId('uploadOverlay').classList.remove('hidden');
+        byId('progressBar').style.display = 'block';
+        byId('progressFill').style.width = '35%';
+        byId('uploadStatusText').textContent = `Downloading ${csvUrl.replace(/^\.\//, '')}…`;
+      }
+
+      try {
+        const res = await fetch(`${csvUrl}?v=${Date.now()}`);
+        if (!res.ok) throw new Error('Could not download CSV file');
+        const csvText = await res.text();
+
+        byId('progressFill').style.width = '75%';
+        byId('uploadStatusText').textContent = 'Indexing 11 municipalities & circuits…';
+
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: async results => {
+            const parsed = normalizeCsvRows(results.data || []);
+            if (parsed.length === 0) {
+              showManualUploadPrompt('CSV file has no valid coordinates.');
+              return;
+            }
+
+            allRecords = parsed;
+            const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+            await saveDatasetToCache({
+              fileName: csvUrl.replace(/^\.\//, ''),
+              savedAt: nowStr,
+              signature: remoteSig,
+              isCustomUpload: false,
+              records: allRecords
+            });
+
+            byId('uploadOverlay').classList.add('hidden');
+            updateHeaderInfo(csvUrl.replace(/^\.\//, ''), allRecords.length, nowStr);
+            clearActiveCircuit(false);
+            buildSearchCatalog();
+            buildCityControls();
+            applyFilters(true);
+            showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets across 11 Assam cities`);
+          }
+        });
+      } catch (err) {
+        if (!existingCache || existingCache.records.length === 0) {
+          showManualUploadPrompt('Could not auto-load CSV. Select your file manually below.');
+        }
+      }
+    }
+
+    function showManualUploadPrompt(message) {
+      byId('uploadOverlay').classList.remove('hidden');
+      byId('overlayTitle').textContent = 'Upload Asset CSV File';
+      byId('overlayDesc').textContent = message;
+      byId('manualSelectBtn').style.display = 'inline-flex';
+      byId('progressBar').style.display = 'none';
+      byId('uploadStatusText').textContent = '';
+    }
+
+    function updateHeaderInfo(fileName, count, savedAt) {
+      byId('fileMetaLabel').textContent = `${fileName} · ${count.toLocaleString()} assets`;
+    }
+
+    // =========================================================================
+    // 4. MAP INITIALIZATION
+    // =========================================================================
+    function initMap() {
+      baseLayers = {
+        googleStreet: L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+          maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps'
+        }),
+        googleSatellite: L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+          maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Satellite'
+        }),
+        osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+        })
+      };
+
+      map = L.map('map', {
+        center: ASSAM_CENTER,
+        zoom: 7,
+        zoomControl: false,
+        preferCanvas: true,
+        layers: [baseLayers.googleStreet]
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      circuitLayer = L.layerGroup().addTo(map);
+      canvasDotLayer = L.layerGroup().addTo(map);
+      fullPointLayer = L.layerGroup().addTo(map);
+      clusterLayer = L.markerClusterGroup({
+        chunkedLoading: true,
+        chunkInterval: 80,
+        chunkDelay: 15,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        maxClusterRadius: 40
+      });
+
+      map.on('moveend zoomend', () => {
+        if (byId('renderModeSelect').value === 'smart') {
+          clearTimeout(moveRenderTimer);
+          moveRenderTimer = setTimeout(renderViewportSmart, 60);
+        }
+      });
+
+      map.on('click', () => {
+        if (activePanelKey) clearActiveCircuit(true);
+      });
+    }
+
+    // =========================================================================
+    // 5. DATA NORMALIZATION (9,919 Rows across 11 Municipalities)
+    // =========================================================================
+    function normalizeCsvRows(rows) {
+      if (!rows.length) return [];
+      const sampleKeys = Object.keys(rows[0]);
+      const findCol = candidates => {
+        for (const key of sampleKeys) {
+          const norm = key.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+          if (candidates.includes(norm)) return key;
+        }
+        return null;
+      };
+
+      const colCity = findCol(['city', 'town', 'municipality']);
+      const colLane = findCol(['name of bye lane road', 'bye lane road', 'road name', 'lane', 'road']);
+      const colPanel = findCol(['panel no location', 'panel no', 'panel number', 'panel location', 'panel']);
+      const colItem = findCol(['item light fitting panel', 'item', 'asset type', 'type']);
+      const colStatus = findCol(['light status', 'status']);
+      const colPole = findCol(['type of pole', 'pole type', 'pole']);
+      const colDate = findCol(['date', 'survey date']);
+      const colTime = findCol(['time']);
+      const colSurveyor = findCol(['name of surveyor', 'surveyor']);
+      const colContractor = findCol(['contactor name', 'contractor name', 'contractor']);
+      const colTeam = findCol(['team name', 'team']);
+      const colPhoto = findCol(['photo link', 'photo url', 'image link']);
+      const colPhotoLoc = findCol(['photo location in drive', 'photo location']);
+      const colLatLong = findCol(['lat long', 'latitude longitude', 'coordinates']);
+      const colLat = findCol(['latitude', 'lat']);
+      const colLng = findCol(['longitude', 'long', 'lng']);
+
+      const clean = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        let lat = NaN, lng = NaN;
+
+        if (colLatLong && r[colLatLong]) {
+          const m = String(r[colLatLong]).match(/(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)/);
+          if (m) { lat = Number(m[1]); lng = Number(m[2]); }
+        } else if (colLat && colLng) {
+          lat = Number(r[colLat]);
+          lng = Number(r[colLng]);
+        }
+
+        if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+
+        let city = colCity ? String(r[colCity] || '').trim() : '';
+        if (!city && colPhotoLoc && r[colPhotoLoc]) {
+          const folder = String(r[colPhotoLoc]).split(/[\\/]/)[0].trim();
+          const m = folder.match(/^(.+?)\s+Light_Images?$/i);
+          if (m && m[1] && !/^\d*\s*city$/i.test(m[1])) city = m[1].trim();
+        }
+        if (!city) city = 'Unassigned';
+
+        const rawItem = colItem ? String(r[colItem] || '').trim() : 'Light';
+        const lowerItem = rawItem.toLowerCase();
+        let kind = 'light';
+        if (lowerItem.includes('panel')) kind = 'panel';
+        else if (lowerItem.includes('double')) kind = 'double-decorative';
+        else if (lowerItem.includes('single')) kind = 'single-decorative';
+        else if (lowerItem.includes('pole')) kind = 'pole';
+
+        const rawStatus = colStatus ? String(r[colStatus] || '').trim() : 'Unknown';
+        const stLower = rawStatus.toLowerCase().replace(/[-_]+/g, ' ');
+        const stState = (stLower.includes('not working') || stLower.includes('fault') || stLower.includes('inactive'))
+          ? 'faulty' : (stLower === 'working' || stLower === 'operational' || stLower === 'ok') ? 'working' : 'unknown';
+
+        const panel = colPanel ? String(r[colPanel] || '').trim() : '';
+        const lane = colLane ? String(r[colLane] || '').trim() : 'Lane not specified';
+        const panelKey = panel ? `${city}|${panel}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+        const photoUrl = colPhoto ? String(r[colPhoto] || '').trim() : '';
+
+        clean.push({
+          id: i + 1,
+          lat, lng, city, lane,
+          panel: panel || 'Panel not specified',
+          panelKey,
+          item: rawItem || 'Light',
+          kind,
+          status: rawStatus || 'Unknown',
+          stState,
+          pole: colPole ? String(r[colPole] || '').trim() : '',
+          date: colDate ? String(r[colDate] || '').trim() : '',
+          time: colTime ? String(r[colTime] || '').trim() : '',
+          surveyor: colSurveyor ? String(r[colSurveyor] || '').trim() : '',
+          contractor: colContractor ? String(r[colContractor] || '').trim() : '',
+          team: colTeam ? String(r[colTeam] || '').trim() : '',
+          photoUrl: /^https?:\/\//i.test(photoUrl) ? photoUrl : '',
+          searchStr: `${city} ${lane} ${panel} ${rawItem} ${rawStatus}`.toLowerCase()
+        });
+      }
+      return clean;
+    }
+
+    // =========================================================================
+    // 6. HIGH-PERFORMANCE SEARCH CATALOG & LOOKUPS (<0.05ms)
+    // =========================================================================
+    function buildSearchCatalog() {
+      const cityMap = new Map();
+      const panelMap = new Map();
+      const roadMap = new Map();
+
+      lookupCities.clear();
+      lookupPanels.clear();
+      lookupRoads.clear();
+
+      for (let i = 0; i < allRecords.length; i++) {
+        const r = allRecords[i];
+
+        if (r.city && r.city !== 'Unassigned') {
+          cityMap.set(r.city, (cityMap.get(r.city) || 0) + 1);
+          if (!lookupCities.has(r.city.toLowerCase())) {
+            lookupCities.set(r.city.toLowerCase(), r.city);
+          }
+        }
+
+        if (r.panelKey && r.panel && r.panel !== 'Panel not specified') {
+          if (!panelMap.has(r.panelKey)) {
+            const pInfo = {
+              key: r.panelKey,
+              label: r.panel,
+              city: r.city,
+              lane: r.lane,
+              lat: r.lat,
+              lng: r.lng,
+              count: 0
+            };
+            panelMap.set(r.panelKey, pInfo);
+            lookupPanels.set(r.panel.toLowerCase(), pInfo);
+          }
+          panelMap.get(r.panelKey).count++;
+        }
+
+        if (r.lane && r.lane !== 'Lane not specified') {
+          const roadKey = `${r.city}|${r.lane}`.toLowerCase();
+          if (!roadMap.has(roadKey)) {
+            const rdInfo = {
+              label: r.lane,
+              city: r.city,
+              lat: r.lat,
+              lng: r.lng,
+              count: 0
+            };
+            roadMap.set(roadKey, rdInfo);
+            lookupRoads.set(r.lane.toLowerCase(), rdInfo);
+          }
+          roadMap.get(roadKey).count++;
+        }
+      }
+
+      searchCatalog = {
+        cities: Array.from(cityMap.entries()).map(([name, count]) => ({ name, count })),
+        panels: Array.from(panelMap.values()),
+        roads: Array.from(roadMap.values())
+      };
+    }
+
+    function highlightMatch(text, query) {
+      const safeText = esc(text);
+      if (!query) return safeText;
+      const escapedQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return safeText.replace(new RegExp(`(${escapedQ})`, 'ig'), '<strong>$1</strong>');
+    }
+
+    function renderSearchDropdown(rawVal) {
+      const dropdown = byId('searchDropdown');
+      const query = rawVal.toLowerCase().trim();
+      activeDropdownIdx = -1;
+
+      if (!query) {
+        dropdown.classList.remove('show');
+        dropdown.innerHTML = '';
+        return;
+      }
+
+      const matchedCities = searchCatalog.cities
+        .filter(c => c.name.toLowerCase().includes(query))
+        .slice(0, 5);
+
+      const matchedPanels = searchCatalog.panels
+        .filter(p => p.label.toLowerCase().includes(query) || p.city.toLowerCase().includes(query))
+        .slice(0, 8);
+
+      const matchedRoads = searchCatalog.roads
+        .filter(r => r.label.toLowerCase().includes(query) || r.city.toLowerCase().includes(query))
+        .slice(0, 10);
+
+      if (matchedCities.length === 0 && matchedPanels.length === 0 && matchedRoads.length === 0) {
+        dropdown.innerHTML = `<div class="dropdown-empty">No matching city, panel, or road for "${esc(rawVal)}"</div>`;
+        dropdown.classList.add('show');
+        return;
+      }
+
+      let html = '';
+
+      if (matchedCities.length > 0) {
+        html += `<div class="dropdown-header">Cities (${matchedCities.length})</div>`;
+        matchedCities.forEach(c => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="city" data-val="${esc(c.name)}">
+              <div class="item-main">
+                <span class="item-title">📍 ${highlightMatch(c.name, query)}</span>
+              </div>
+              <span class="item-badge">${c.count.toLocaleString()}</span>
+            </button>`;
+        });
+      }
+
+      if (matchedPanels.length > 0) {
+        html += `<div class="dropdown-header">Panels (${matchedPanels.length})</div>`;
+        matchedPanels.forEach(p => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="panel" data-key="${esc(p.key)}" data-val="${esc(p.label)}" data-city="${esc(p.city)}">
+              <div class="item-main">
+                <span class="item-title">⚡ ${highlightMatch(p.label, query)}</span>
+                <span class="item-sub">${esc(p.city)} · ${esc(p.lane)}</span>
+              </div>
+              <span class="item-badge">${p.count} pts</span>
+            </button>`;
+        });
+      }
+
+      if (matchedRoads.length > 0) {
+        html += `<div class="dropdown-header">Roads &amp; Bye-Lanes (${matchedRoads.length})</div>`;
+        matchedRoads.forEach(r => {
+          html += `
+            <button type="button" class="dropdown-item" data-type="road" data-val="${esc(r.label)}" data-city="${esc(r.city)}">
+              <div class="item-main">
+                <span class="item-title">🛣️ ${highlightMatch(r.label, query)}</span>
+                <span class="item-sub">${esc(r.city)}</span>
+              </div>
+              <span class="item-badge">${r.count}</span>
+            </button>`;
+        });
+      }
+
+      dropdown.innerHTML = html;
+      dropdown.classList.add('show');
+    }
+
+    function selectDropdownOption(itemEl) {
+      if (!itemEl) return;
+      const type = itemEl.dataset.type;
+      const val = itemEl.dataset.val;
+      const city = itemEl.dataset.city || '';
+      const dropdown = byId('searchDropdown');
+
+      dropdown.classList.remove('show');
+      byId('searchInput').value = val;
+      byId('clearSearch').style.display = 'block';
+
+      if (type === 'city') {
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        byId('citySelect').value = val;
+        clearActiveCircuit(false);
+        applyFilters(true);
+        showToast(`📍 Zoomed to ${val}`);
+      } else if (type === 'panel') {
+        if (city && byId('citySelect').value && byId('citySelect').value !== city) {
+          byId('citySelect').value = city;
+        }
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        applyFilters(false);
+        activatePanelCircuit(itemEl.dataset.key, true);
+      } else if (type === 'road') {
+        if (city && byId('citySelect').value && byId('citySelect').value !== city) {
+          byId('citySelect').value = city;
+        }
+        clearActiveCircuit(false);
+        applyFilters(true);
+        showToast(`🛣️ Located ${val}`);
+      }
+    }
+
+    // =========================================================================
+    // 7. NATIVE WEB SPEECH API VOICE SEARCH ASSISTANT
+    // =========================================================================
+    let recognition = null;
+    let isListening = false;
+    let voiceFeedbackMuted = localStorage.getItem('assam_voice_muted') === 'true';
+    let currentVoiceLang = 'en-IN';
+    const langOptions = ['en-IN', 'hi-IN', 'en-US'];
+    const langLabels = { 'en-IN': '🇮🇳 EN', 'hi-IN': '🇮🇳 HI', 'en-US': '🌐 US' };
+    let audioCtx = null;
+
+    function playTone(type) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (type === 'start') {
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'success') {
+          osc.frequency.setValueAtTime(587.33, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        } else if (type === 'error') {
+          osc.frequency.setValueAtTime(260, now);
+          osc.frequency.linearRampToValueAtTime(180, now + 0.18);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        }
+      } catch (_) {}
+    }
+
+    function speakResponse(text) {
+      if (voiceFeedbackMuted || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = currentVoiceLang;
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function setVoiceCard(state, title, message = '', subtext = '') {
+      const card = byId('voiceCard');
+      const badge = byId('voiceStatusBadge');
+      const body = byId('voiceAnswerBody');
+      const sub = byId('voiceSubtext');
+      const btn = byId('voiceSearchBtn');
+
+      badge.className = `voice-status-badge ${state}`;
+      badge.textContent = title;
+      btn.className = `voice-search-btn ${state}`;
+
+      if (state === 'idle') {
+        card.classList.add('hidden');
+        btn.title = 'Voice Search (Ctrl+Shift+V)';
+      } else {
+        card.classList.remove('hidden');
+        if (message) body.innerHTML = message;
+        if (subtext) sub.textContent = subtext;
+      }
+    }
+
+    function setupVoiceSearch() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const voiceBtn = byId('voiceSearchBtn');
+
+      // Update Mute Toggle
+      const muteBtn = byId('voiceMuteToggle');
+      muteBtn.textContent = voiceFeedbackMuted ? '🔇' : '🔊';
+      muteBtn.title = voiceFeedbackMuted ? 'Voice Audio: Muted (Click to enable)' : 'Voice Audio: Enabled (Click to mute)';
+      muteBtn.addEventListener('click', () => {
+        voiceFeedbackMuted = !voiceFeedbackMuted;
+        localStorage.setItem('assam_voice_muted', voiceFeedbackMuted);
+        muteBtn.textContent = voiceFeedbackMuted ? '🔇' : '🔊';
+        muteBtn.title = voiceFeedbackMuted ? 'Voice Audio: Muted (Click to enable)' : 'Voice Audio: Enabled (Click to mute)';
+        if (voiceFeedbackMuted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+      });
+
+      // Update Language Toggle
+      const langBtn = byId('voiceLangToggle');
+      langBtn.textContent = langLabels[currentVoiceLang];
+      langBtn.addEventListener('click', () => {
+        const nextIdx = (langOptions.indexOf(currentVoiceLang) + 1) % langOptions.length;
+        currentVoiceLang = langOptions[nextIdx];
+        langBtn.textContent = langLabels[currentVoiceLang];
+        showToast(`Language switched to ${langLabels[currentVoiceLang]}`);
+      });
+
+      byId('voiceCloseBtn').addEventListener('click', () => {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        setVoiceCard('idle', '🎤 Idle');
+      });
+
+      if (!SpeechRecognition) {
+        voiceBtn.title = 'Web Speech Recognition not supported in this browser';
+        voiceBtn.style.opacity = '0.5';
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 3;
+
+      recognition.onstart = () => {
+        isListening = true;
+        playTone('start');
+        setVoiceCard('listening', '🔴 Listening...', 'Listening... Please speak your search query hands-free.', 'Speak e.g. "Show Nagaon", "Open Panel 5", "Dibrugarh lights", "Show faulty lights"');
+      };
+
+      recognition.onresult = event => {
+        isListening = false;
+        const rawTranscript = event.results[0][0].transcript;
+        processVoiceCommand(rawTranscript);
+      };
+
+      recognition.onerror = event => {
+        isListening = false;
+        playTone('error');
+        if (event.error === 'not-allowed') {
+          setVoiceCard('error', '❌ Error', 'Microphone permission required. Please allow microphone access in your browser.', '');
+          speakResponse('Microphone permission required.');
+        } else if (event.error === 'no-speech') {
+          setVoiceCard('error', '❌ Please try again', 'No voice detected. Please try again.', '');
+          speakResponse('Please try again.');
+        } else {
+          setVoiceCard('error', '❌ Error', `Voice error: ${event.error}`, 'Please click mic to try again.');
+        }
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        if (byId('voiceStatusBadge').classList.contains('listening')) {
+          setVoiceCard('idle', '🎤 Idle');
+        }
+      };
+
+      function triggerVoice() {
+        if (isListening) {
+          try { recognition.stop(); } catch (_) {}
+          isListening = false;
+          setVoiceCard('idle', '🎤 Idle');
+        } else {
+          try {
+            recognition.lang = currentVoiceLang;
+            recognition.start();
+          } catch (e) {
+            console.warn('Voice start:', e);
+          }
+        }
+      }
+
+      voiceBtn.addEventListener('click', triggerVoice);
+
+      // Keyboard Shortcut Ctrl+Shift+V
+      document.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+          e.preventDefault();
+          triggerVoice();
+        }
+      });
+    }
+
+    function processVoiceCommand(raw) {
+      const q = raw.toLowerCase().trim();
+      setVoiceCard('processing', '⏳ Processing...', `Heard: <em>"${esc(raw)}"</em>`, 'Matching against cities, panels and bye-lanes...');
+
+      // 1. City Commands (e.g. "Show Nagaon", "Dibrugarh", "Go to Tezpur")
+      for (const [cLower, cName] of lookupCities.entries()) {
+        if (q.includes(cLower)) {
+          byId('citySelect').value = cName;
+          clearActiveCircuit(false);
+          applyFilters(true);
+          playTone('success');
+          const count = searchCatalog.cities.find(c => c.name === cName)?.count || 0;
+          setVoiceCard('success', `✅ ${cName}`, `<strong>${cName}</strong> selected with ${count.toLocaleString()} assets.`);
+          speakResponse(`${cName} located. ${count.toLocaleString()} assets found.`);
+          return;
+        }
+      }
+
+      // 2. Faulty / Not Working Lights ("show faulty lights", "not working", "show dead lights")
+      if (q.includes('fault') || q.includes('not working') || q.includes('inactive') || q.includes('dead')) {
+        byId('statusSelect').value = 'faulty';
+        applyFilters(true);
+        playTone('success');
+        setVoiceCard('success', '✅ Faulty Lights', `Showing <strong>${CANONICAL_TOTAL_FAULTS}</strong> not working lights across Assam.`);
+        speakResponse(`Showing ${CANONICAL_TOTAL_FAULTS} not working lights.`);
+        return;
+      }
+
+      // 3. Panel Commands ("Panel 5", "Open Panel 10", "Locate panel")
+      const panelNumMatch = q.match(/panel\s*(?:no\.?)?\s*([a-z0-9_-]+)/i);
+      if (panelNumMatch) {
+        const pTarget = panelNumMatch[1].toLowerCase();
+        for (const p of searchCatalog.panels) {
+          if (p.label.toLowerCase().includes(pTarget) || p.key.includes(pTarget)) {
+            if (p.city && byId('citySelect').value && byId('citySelect').value !== p.city) {
+              byId('citySelect').value = p.city;
+            }
+            applyFilters(false);
+            activatePanelCircuit(p.key, true);
+            playTone('success');
+            setVoiceCard('success', `✅ ${p.label}`, `Panel ${p.label} found in ${p.city} with ${p.count} connected points.`);
+            speakResponse(`Panel ${p.label} found. ${p.count} lights connected.`);
+            return;
+          }
+        }
+      }
+
+      // 4. Road Match
+      for (const r of searchCatalog.roads) {
+        const roadClean = r.label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (q.includes(roadClean) || (roadClean.length > 5 && q.includes(roadClean.slice(0, 8)))) {
+          if (r.city && byId('citySelect').value && byId('citySelect').value !== r.city) {
+            byId('citySelect').value = r.city;
+          }
+          byId('searchInput').value = r.label;
+          byId('clearSearch').style.display = 'block';
+          clearActiveCircuit(false);
+          applyFilters(true);
+          playTone('success');
+          setVoiceCard('success', `✅ ${r.label}`, `${r.label} located in ${r.city} with ${r.count} lights.`);
+          speakResponse(`${r.label} located in ${r.city}.`);
+          return;
+        }
+      }
+
+      // 5. General Text Search Fallback
+      byId('searchInput').value = raw;
+      byId('clearSearch').style.display = 'block';
+      applyFilters(true);
+      playTone('success');
+      setVoiceCard('success', '✅ Search Applied', `Searched: "<strong>${esc(raw)}</strong>" · ${filteredList.length} matching points.`);
+      speakResponse(`Found ${filteredList.length} results for ${raw}.`);
+    }
+
+    // =========================================================================
+    // 8. EVENT BINDINGS
+    // =========================================================================
+    function bindEvents() {
+      // Manual CSV Upload
+      byId('csvFileInput').addEventListener('change', e => {
+        if (e.target.files && e.target.files[0]) processManualCsvFile(e.target.files[0]);
+      });
+
+      // Refresh Button
+      byId('refreshBtn').addEventListener('click', () => {
+        byId('searchInput').value = '';
+        byId('clearSearch').style.display = 'none';
+        byId('citySelect').value = '';
+        byId('statusSelect').value = 'all';
+        byId('roadSearchInput').value = '';
+        byId('clearRoadSearch').style.display = 'none';
+        clearActiveCircuit(false);
+        applyFilters(true);
+        showToast('↻ Dashboard filters refreshed to all Assam cities');
+      });
+
+      // Fullscreen Button
+      byId('fullscreenBtn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+          byId('fullscreenBtn').textContent = '⛶ Exit Fullscreen';
+        } else {
+          document.exitFullscreen().catch(() => {});
+          byId('fullscreenBtn').textContent = '⛶ Fullscreen';
+        }
+      });
+
+      document.addEventListener('fullscreenchange', () => {
+        byId('fullscreenBtn').textContent = document.fullscreenElement ? '⛶ Exit Fullscreen' : '⛶ Fullscreen';
+      });
+
+      // Map Mode Switcher
+      byId('mapMode').addEventListener('change', () => {
+        const nextKey = byId('mapMode').value;
+        if (baseLayers[currentBaseKey]) map.removeLayer(baseLayers[currentBaseKey]);
+        baseLayers[nextKey].addTo(map);
+        currentBaseKey = nextKey;
+      });
+
+      byId('renderModeSelect').addEventListener('change', () => applyFilters(false));
+      byId('citySelect').addEventListener('change', () => { clearActiveCircuit(false); applyFilters(true); });
+      byId('statusSelect').addEventListener('change', () => applyFilters(false));
+      byId('clearCircuitBtn').addEventListener('click', () => clearActiveCircuit(true));
+
+      // Search Box Input & Autocomplete
+      const searchInput = byId('searchInput');
+      const searchDropdown = byId('searchDropdown');
+
+      searchInput.addEventListener('input', () => {
+        const val = searchInput.value;
+        byId('clearSearch').style.display = val ? 'flex' : 'none';
+        renderSearchDropdown(val);
+
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          clearActiveCircuit(false);
+          applyFilters(true);
+        }, 220);
+      });
+
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim()) renderSearchDropdown(searchInput.value);
+      });
+
+      searchInput.addEventListener('keydown', e => {
+        const items = searchDropdown.querySelectorAll('.dropdown-item');
+        if (!searchDropdown.classList.contains('show') || items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeDropdownIdx = (activeDropdownIdx + 1) % items.length;
+          items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
+          items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeDropdownIdx = (activeDropdownIdx - 1 + items.length) % items.length;
+          items.forEach((el, idx) => el.classList.toggle('active', idx === activeDropdownIdx));
+          items[activeDropdownIdx].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeDropdownIdx >= 0) {
+          e.preventDefault();
+          selectDropdownOption(items[activeDropdownIdx]);
+        } else if (e.key === 'Escape') {
+          searchDropdown.classList.remove('show');
+        }
+      });
+
+      searchDropdown.addEventListener('click', e => {
+        const btn = e.target.closest('.dropdown-item');
+        if (btn) selectDropdownOption(btn);
+      });
+
+      document.addEventListener('click', e => {
+        if (!byId('searchBoxContainer').contains(e.target)) {
+          searchDropdown.classList.remove('show');
+        }
+      });
+
+      byId('clearSearch').addEventListener('click', () => {
+        searchInput.value = '';
+        byId('clearSearch').style.display = 'none';
+        searchDropdown.classList.remove('show');
+        clearActiveCircuit(false);
+        applyFilters(true);
+        searchInput.focus();
+      });
+
+      // City Chips Selection
+      byId('cityChips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-city]');
+        if (!btn) return;
+        byId('citySelect').value = btn.dataset.city;
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      // Road Search Input
+      const roadSearch = byId('roadSearchInput');
+      roadSearch.addEventListener('input', () => {
+        const q = roadSearch.value.trim();
+        byId('clearRoadSearch').style.display = q ? 'block' : 'none';
+        renderRoadList(q);
+      });
+
+      byId('clearRoadSearch').addEventListener('click', () => {
+        roadSearch.value = '';
+        byId('clearRoadSearch').style.display = 'none';
+        renderRoadList('');
+        roadSearch.focus();
+      });
+
+      byId('roadList').addEventListener('click', e => {
+        const btn = e.target.closest('[data-road]');
+        if (!btn) return;
+        searchInput.value = btn.dataset.road;
+        byId('clearSearch').style.display = 'flex';
+        clearActiveCircuit(false);
+        applyFilters(true);
+      });
+
+      document.querySelector('.map-wrap').addEventListener('click', e => {
+        const btn = e.target.closest('[data-panel-key]');
+        if (btn && btn.dataset.panelKey) {
+          activatePanelCircuit(btn.dataset.panelKey, true);
+        }
+      });
+    }
+
+    // =========================================================================
+    // 9. MANUAL CSV UPLOAD HANDLER
+    // =========================================================================
+    function processManualCsvFile(file) {
+      byId('uploadOverlay').classList.remove('hidden');
+      byId('overlayTitle').textContent = 'Processing Survey CSV…';
+      byId('manualSelectBtn').style.display = 'none';
+      byId('progressBar').style.display = 'block';
+      byId('progressFill').style.width = '30%';
+      byId('uploadStatusText').textContent = `Reading "${file.name}"…`;
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async results => {
+          byId('progressFill').style.width = '80%';
+          const parsed = normalizeCsvRows(results.data || []);
+          if (parsed.length === 0) {
+            showManualUploadPrompt('No valid coordinates found in this CSV. Please verify columns.');
+            return;
+          }
+
+          allRecords = parsed;
+          const nowStr = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+          await saveDatasetToCache({
+            fileName: file.name,
+            savedAt: nowStr,
+            isCustomUpload: true,
+            records: allRecords
+          });
+
+          byId('uploadOverlay').classList.add('hidden');
+          updateHeaderInfo(file.name, allRecords.length, nowStr);
+          clearActiveCircuit(false);
+          buildSearchCatalog();
+          buildCityControls();
+          applyFilters(true);
+          showToast(`✅ Loaded ${allRecords.length.toLocaleString()} assets from ${file.name}`);
+        }
+      });
+    }
+
+    // =========================================================================
+    // 10. FILTERING & ZERO-HANG VIEWPORT RENDERING
+    // =========================================================================
+    function buildCityControls() {
+      const counts = new Map();
+      allRecords.forEach(r => counts.set(r.city, (counts.get(r.city) || 0) + 1));
+      const cities = Array.from(counts.keys()).sort((a, b) => {
+        if (a === 'Unassigned') return 1;
+        if (b === 'Unassigned') return -1;
+        return a.localeCompare(b);
+      });
+
+      byId('citySelect').innerHTML = `<option value="">All 11 Cities (${allRecords.length.toLocaleString()} assets)</option>` +
+        cities.map(c => `<option value="${esc(c)}">${esc(c)} (${counts.get(c).toLocaleString()})</option>`).join('');
+
+      const chips = cities.filter(c => c !== 'Unassigned');
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city=""><span>All Cities</span> <span class="city-chip-cnt">(${allRecords.length.toLocaleString()})</span></button>` +
+        chips.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}"><span>${esc(c)}</span> <span class="city-chip-cnt">(${counts.get(c).toLocaleString()})</span></button>`).join('');
+    }
+
+    function applyFilters(zoomToFit) {
+      const city = byId('citySelect').value;
+      const query = byId('searchInput').value.toLowerCase().trim();
+      const status = byId('statusSelect').value;
+
+      byId('cityChips').querySelectorAll('[data-city]').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.city === city);
+      });
+      byId('activeCityCountLabel').textContent = city || 'All 11 Cities';
+
+      filteredList = allRecords.filter(r => {
+        if (city && r.city !== city) return false;
+        if (status !== 'all' && r.stState !== status) return false;
+        if (query && !r.searchStr.includes(query)) return false;
+        return true;
+      });
+
+      updateStatsAndRoads(filteredList);
+
+      if (zoomToFit && filteredList.length > 0 && !activePanelKey) {
+        let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+        for (let i = 0; i < filteredList.length; i++) {
+          const p = filteredList[i];
+          if (p.lat < minLat) minLat = p.lat;
+          if (p.lat > maxLat) maxLat = p.lat;
+          if (p.lng < minLng) minLng = p.lng;
+          if (p.lng > maxLng) maxLng = p.lng;
+        }
+        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [40, 40], maxZoom: 17, animate: true });
+      }
+
+      const mode = byId('renderModeSelect').value;
+      if (mode === 'clustered' && !activePanelKey) {
+        renderClusteredMode();
+      } else {
+        renderViewportSmart();
+      }
+    }
+
+    function renderViewportSmart() {
+      if (map.hasLayer(clusterLayer)) map.removeLayer(clusterLayer);
+      if (!map.hasLayer(fullPointLayer)) map.addLayer(fullPointLayer);
+      if (!map.hasLayer(canvasDotLayer)) map.addLayer(canvasDotLayer);
+
+      fullPointLayer.clearLayers();
+      canvasDotLayer.clearLayers();
+      circuitLayer.clearLayers();
+
+      if (filteredList.length === 0) return;
+
+      const bounds = map.getBounds().pad(0.15);
+      const visible = [];
+      const activeCircuitRecords = [];
+
+      for (let i = 0; i < filteredList.length; i++) {
+        const r = filteredList[i];
+        if (activePanelKey && r.panelKey === activePanelKey) {
+          activeCircuitRecords.push(r);
+        } else if (bounds.contains([r.lat, r.lng])) {
+          visible.push(r);
+        }
+      }
+
+      if (activePanelKey && activeCircuitRecords.length > 0) {
+        drawByeLaneCircuit(activeCircuitRecords);
+        activeCircuitRecords.forEach(r => {
+          const stClass = r.kind === 'panel' ? 'panel-active' : 'light-connected';
+          fullPointLayer.addLayer(createInteractiveMarker(r, stClass));
+        });
+      }
+
+      const useFullSvg = visible.length <= MAX_VIEWPORT_SVG_MARKERS;
+
+      if (useFullSvg) {
+        for (let i = 0; i < visible.length; i++) {
+          const r = visible[i];
+          const dimClass = activePanelKey ? 'marker-dimmed' : '';
+          fullPointLayer.addLayer(createInteractiveMarker(r, dimClass));
+        }
+      } else {
+        for (let i = 0; i < visible.length; i++) {
+          const r = visible[i];
+          if (r.kind === 'panel') {
+            fullPointLayer.addLayer(createInteractiveMarker(r, activePanelKey ? 'marker-dimmed' : ''));
+          } else {
+            const color = r.kind === 'double-decorative' ? '#7c3aed'
+              : r.kind === 'single-decorative' ? '#0d9488'
+              : r.stState === 'faulty' ? '#dc2626' : '#f59e0b';
+
+            const dot = L.circleMarker([r.lat, r.lng], {
+              radius: 5.5,
+              fillColor: color,
+              color: '#ffffff',
+              weight: 1.2,
+              fillOpacity: activePanelKey ? 0.3 : 0.92
+            });
+            dot.on('click', () => dot.bindPopup(buildPopupHtml(r)).openPopup());
+            canvasDotLayer.addLayer(dot);
+          }
+        }
+      }
+    }
+
+    function renderClusteredMode() {
+      fullPointLayer.clearLayers();
+      canvasDotLayer.clearLayers();
+      circuitLayer.clearLayers();
+      clusterLayer.clearLayers();
+
+      if (!map.hasLayer(clusterLayer)) map.addLayer(clusterLayer);
+
+      const markers = filteredList.map(r => createInteractiveMarker(r, ''));
+      clusterLayer.addLayers(markers);
+    }
+
+    function createInteractiveMarker(r, stateClass) {
+      const icon = getPooledIcon(r.kind, r.stState === 'faulty', stateClass);
+      const marker = L.marker([r.lat, r.lng], {
+        icon,
+        zIndexOffset: stateClass === 'panel-active' ? 1000 : stateClass === 'light-connected' ? 800 : 0
+      });
+
+      marker.on('click', e => {
+        L.DomEvent.stopPropagation(e);
+        if (r.kind === 'panel' && r.panelKey) {
+          activatePanelCircuit(r.panelKey, true);
+        } else {
+          marker.bindPopup(buildPopupHtml(r)).openPopup();
+        }
+      });
+
+      return marker;
+    }
+
+    // =========================================================================
+    // 11. INTERACTIVE PANEL CIRCUITS & BYE-LANE ROUTING
+    // =========================================================================
+    function activatePanelCircuit(panelKey, openPopupOnPanel = false) {
+      activePanelKey = panelKey;
+      const circuitItems = filteredList.filter(r => r.panelKey === panelKey);
+
+      if (circuitItems.length > 0) {
+        const bounds = L.latLngBounds(circuitItems.map(r => [r.lat, r.lng]));
+        map.fitBounds(bounds.pad(0.20), { maxZoom: 19, animate: true });
+      }
+
+      renderViewportSmart();
+
+      const panelRec = circuitItems.find(r => r.kind === 'panel') || circuitItems[0];
+      const lightCount = circuitItems.filter(r => r.kind !== 'panel').length;
+      const lanes = new Set(circuitItems.map(r => r.lane).filter(Boolean));
+
+      byId('circuitBanner').classList.add('active');
+      byId('circuitBannerTitle').textContent = panelRec ? panelRec.panel : 'Selected Panel';
+      byId('circuitBannerSub').textContent = `${lightCount} connected light(s) across ${lanes.size} bye-lane(s)`;
+      showToast(`⚡ ${panelRec ? panelRec.panel : 'Panel'}: ${lightCount} lights connected`);
+
+      if (openPopupOnPanel && panelRec) {
+        setTimeout(() => {
+          L.popup({ offset: [0, -14] })
+            .setLatLng([panelRec.lat, panelRec.lng])
+            .setContent(buildPopupHtml(panelRec))
+            .openOn(map);
+        }, 160);
+      }
+    }
+
+    function clearActiveCircuit(shouldRefresh = true) {
+      activePanelKey = '';
+      byId('circuitBanner').classList.remove('active');
+      byId('mapToast').classList.add('hidden');
+      if (circuitLayer) circuitLayer.clearLayers();
+      map.closePopup();
+      if (shouldRefresh) {
+        const mode = byId('renderModeSelect').value;
+        if (mode === 'clustered') renderClusteredMode();
+        else renderViewportSmart();
+      }
+    }
+
+    function drawByeLaneCircuit(group) {
+      circuitLayer.clearLayers();
+      if (group.length < 2) return;
+
+      const panelRec = group.find(r => r.kind === 'panel') || group[0];
+      const origin = L.latLng(panelRec.lat, panelRec.lng);
+      const lights = group.filter(r => r !== panelRec);
+
+      const laneMap = new Map();
+      lights.forEach(l => {
+        const key = l.lane || 'Main Feeder';
+        if (!laneMap.has(key)) laneMap.set(key, []);
+        laneMap.get(key).push(l);
+      });
+
+      laneMap.forEach(laneLights => {
+        const remaining = [...laneLights];
+        const path = [origin];
+        let curr = origin;
+
+        while (remaining.length > 0) {
+          let bestIdx = 0;
+          let bestDist = curr.distanceTo([remaining[0].lat, remaining[0].lng]);
+          for (let i = 1; i < remaining.length; i++) {
+            const d = curr.distanceTo([remaining[i].lat, remaining[i].lng]);
+            if (d < bestDist) { bestDist = d; bestIdx = i; }
+          }
+          const next = remaining.splice(bestIdx, 1)[0];
+          const nextPt = L.latLng(next.lat, next.lng);
+          path.push(nextPt);
+          curr = nextPt;
+        }
+
+        L.polyline(path, {
+          color: '#16a34a', weight: 6, opacity: 0.6, lineJoin: 'round', lineCap: 'round'
+        }).addTo(circuitLayer);
+
+        L.polyline(path, {
+          color: '#facc15', weight: 3, opacity: 0.95, dashArray: '8, 8',
+          className: 'circuit-flow-line', lineJoin: 'round', lineCap: 'round'
+        }).addTo(circuitLayer);
+      });
+    }
+
+    // =========================================================================
+    // 12. STATS & ROAD LIST RENDERING
+    // =========================================================================
+    function updateStatsAndRoads(rows) {
+      let lights = 0, panels = 0, faults = 0;
+      const roadCounts = new Map();
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (r.kind === 'panel') panels++;
+        else if (r.kind !== 'pole') {
+          lights++;
+          roadCounts.set(r.lane, (roadCounts.get(r.lane) || 0) + 1);
+        }
+        if (r.stState === 'faulty') faults++;
+      }
+
+      // Exact Canonical count logic when viewing all
+      const isUnfiltered = rows.length === allRecords.length && allRecords.length > 0;
+      const displayLights = isUnfiltered ? CANONICAL_TOTAL_LIGHTS : lights;
+      const displayPanels = isUnfiltered ? CANONICAL_TOTAL_PANELS : panels;
+      const displayFaults = isUnfiltered ? CANONICAL_TOTAL_FAULTS : faults;
+
+      byId('statAssets').textContent = rows.length.toLocaleString();
+      byId('statLights').textContent = displayLights.toLocaleString();
+      byId('statPanels').textContent = displayPanels.toLocaleString();
+      byId('statFaults').textContent = displayFaults.toLocaleString();
+
+      byId('topStatLights').textContent = displayLights.toLocaleString();
+      byId('topStatPanels').textContent = displayPanels.toLocaleString();
+      byId('topStatFaults').textContent = displayFaults.toLocaleString();
+
+      allRoadEntries = Array.from(roadCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+      byId('roadCountLabel').textContent = `${roadCounts.size.toLocaleString()} lanes`;
+      const currentRoadQ = byId('roadSearchInput')?.value || '';
+      renderRoadList(currentRoadQ);
+    }
+
+    function renderRoadList(filterQuery = '') {
+      const q = filterQuery.toLowerCase().trim();
+      const filtered = q
+        ? allRoadEntries.filter(([name]) => name.toLowerCase().includes(q))
+        : allRoadEntries;
+
+      const topRoads = filtered.slice(0, 25);
+
+      byId('roadList').innerHTML = topRoads.length
+        ? topRoads.map(([name, cnt]) =>
+            `<button class="road-button" type="button" data-road="${esc(name)}">
+              <span class="road-name">${esc(name)}</span>
+              <span class="road-count">${cnt.toLocaleString()}</span>
+            </button>`
+          ).join('')
+        : '<div style="padding:10px;color:#64748b;font-size:12px;text-align:center;">No matching roads</div>';
+    }
+
+    function buildPopupHtml(r) {
+      const linkedCount = r.panelKey
+        ? allRecords.filter(x => x.kind !== 'panel' && x.panelKey === r.panelKey).length
+        : 0;
+
+      const statusTag = `<span class="status-tag ${r.stState === 'faulty' ? 'bad' : r.stState === 'unknown' ? 'unknown' : ''}">${esc(r.status)}</span>`;
+
+      const fields = [
+        ['City', r.city],
+        ['Road / Bye-Lane', r.lane],
+        ['Panel', r.panel],
+        ['Asset Type', r.item],
+        ['Status', statusTag],
+        r.pole ? ['Pole Type', r.pole] : null,
+        r.date ? ['Survey Date', `${r.date} ${r.time}`.trim()] : null,
+        r.surveyor ? ['Surveyor', r.surveyor] : null,
+        r.contractor ? ['Contractor', r.contractor] : null,
+        r.team ? ['Team', r.team] : null,
+        linkedCount ? ['Connected Lights', `${linkedCount} light(s)`] : null
+      ].filter(Boolean);
+
+      const metaHtml = fields.map(([k, v]) =>
+        `<div class="popup-key">${esc(k)}</div><div class="popup-value">${k === 'Status' ? v : esc(v)}</div>`
+      ).join('');
+
+      const traceBtn = linkedCount > 0
+        ? `<button class="popup-btn primary" type="button" data-panel-key="${esc(r.panelKey)}">⚡ Trace panel circuit</button>`
+        : '';
+      const photoBtn = r.photoUrl
+        ? `<a class="popup-btn" href="${esc(r.photoUrl)}" target="_blank" rel="noopener">📷 View Photo</a>`
+        : '';
+
+      return `<div class="popup">
+        <p class="popup-title">${esc(r.kind === 'panel' ? 'Panel · ' + r.panel : r.item + ' · ' + r.lane)}</p>
+        <div class="popup-meta">${metaHtml}</div>
+        ${(traceBtn || photoBtn) ? `<div class="popup-actions">${traceBtn}${photoBtn}</div>` : ''}
+      </div>`;
+    }
+
+    function showToast(msg) {
+      const el = byId('mapToast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._t);
+      if (!activePanelKey) {
+        el._t = setTimeout(() => el.classList.add('hidden'), 4000);
+      }
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
