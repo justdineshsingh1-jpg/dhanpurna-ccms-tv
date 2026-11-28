@@ -586,14 +586,16 @@
     }
     .city-chips {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
-      overflow-x: auto;
+      max-height: 220px;
+      overflow-y: auto;
       padding: 4px 1px 6px;
       scrollbar-width: thin;
     }
     .city-chip {
       flex: 0 0 auto;
-      padding: 6px 11px;
+      padding: 5px 10px;
       border: 1px solid var(--line);
       background: var(--paper);
       border-radius: 20px;
@@ -605,6 +607,7 @@
       align-items: center;
       gap: 5px;
       transition: all .15s ease;
+      white-space: nowrap;
     }
     .city-chip:hover {
       background: #f1f5f9;
@@ -620,6 +623,10 @@
       font-size: 10px;
       opacity: 0.85;
       font-weight: 700;
+    }
+    .city-chip.active .city-chip-cnt {
+      opacity: 0.95;
+      color: #e0e7ff;
     }
 
     /* Filter Controls */
@@ -1222,7 +1229,7 @@
             <span>City / Municipality (11)</span>
             <span id="activeCityCountLabel" style="font-size:11px;color:var(--blue);font-weight:700;">All Cities</span>
           </div>
-          <select class="select-box" id="citySelect"><option value="">All 11 Cities (9,919 assets)</option></select>
+          <select class="select-box" id="citySelect"><option value="">All 11 Cities (9,512 lights)</option></select>
           <div class="city-chips" id="cityChips"></div>
         </div>
 
@@ -1352,7 +1359,7 @@
     ];
     const DB_NAME = 'AssamStreetLightDB_MultiCity';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'assam_cities_v3';
+    const DB_KEY = 'assam_cities_v4';
 
     // Canonical totals across the 11 surveyed municipalities
     const CANONICAL_TOTAL_LIGHTS = 9512;
@@ -1825,7 +1832,9 @@
         const r = allRecords[i];
 
         if (r.city && r.city !== 'Unassigned') {
-          cityMap.set(r.city, (cityMap.get(r.city) || 0) + 1);
+          if (r.kind !== 'panel' && r.kind !== 'pole') {
+            cityMap.set(r.city, (cityMap.get(r.city) || 0) + 1);
+          }
           if (!lookupCities.has(r.city.toLowerCase())) {
             lookupCities.set(r.city.toLowerCase(), r.city);
           }
@@ -1922,7 +1931,7 @@
               <div class="item-main">
                 <span class="item-title">📍 ${highlightMatch(c.name, query)}</span>
               </div>
-              <span class="item-badge">${c.count.toLocaleString()}</span>
+              <span class="item-badge">${c.count.toLocaleString()} lights</span>
             </button>`;
         });
       }
@@ -2857,20 +2866,38 @@
     // 10. FILTERING & ZERO-HANG VIEWPORT RENDERING
     // =========================================================================
     function buildCityControls() {
-      const counts = new Map();
-      allRecords.forEach(r => counts.set(r.city, (counts.get(r.city) || 0) + 1));
-      const cities = Array.from(counts.keys()).sort((a, b) => {
+      const lightCounts = new Map();
+      const assetCounts = new Map();
+      let totalAllLights = 0;
+
+      allRecords.forEach(r => {
+        assetCounts.set(r.city, (assetCounts.get(r.city) || 0) + 1);
+        if (r.kind !== 'panel' && r.kind !== 'pole') {
+          lightCounts.set(r.city, (lightCounts.get(r.city) || 0) + 1);
+          totalAllLights++;
+        }
+      });
+
+      const cities = Array.from(assetCounts.keys()).sort((a, b) => {
         if (a === 'Unassigned') return 1;
         if (b === 'Unassigned') return -1;
         return a.localeCompare(b);
       });
 
-      byId('citySelect').innerHTML = `<option value="">All 11 Cities (${allRecords.length.toLocaleString()} assets)</option>` +
-        cities.map(c => `<option value="${esc(c)}">${esc(c.replace('-', ' '))} (${counts.get(c).toLocaleString()})</option>`).join('');
+      const displayTotalLights = totalAllLights || CANONICAL_TOTAL_LIGHTS;
+
+      byId('citySelect').innerHTML = `<option value="">All 11 Cities (${displayTotalLights.toLocaleString()} lights)</option>` +
+        cities.map(c => {
+          const lCnt = lightCounts.get(c) || 0;
+          return `<option value="${esc(c)}">${esc(c.replace('-', ' '))} (${lCnt.toLocaleString()} lights)</option>`;
+        }).join('');
 
       const chips = cities.filter(c => c !== 'Unassigned');
-      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city=""><span>All Cities</span> <span class="city-chip-cnt">(${allRecords.length.toLocaleString()})</span></button>` +
-        chips.map(c => `<button class="city-chip" type="button" data-city="${esc(c)}"><span>${esc(c.replace('-', ' '))}</span> <span class="city-chip-cnt">(${counts.get(c).toLocaleString()})</span></button>`).join('');
+      byId('cityChips').innerHTML = `<button class="city-chip active" type="button" data-city=""><span>All Cities</span> <span class="city-chip-cnt">(${displayTotalLights.toLocaleString()})</span></button>` +
+        chips.map(c => {
+          const lCnt = lightCounts.get(c) || 0;
+          return `<button class="city-chip" type="button" data-city="${esc(c)}"><span>${esc(c.replace('-', ' '))}</span> <span class="city-chip-cnt">(${lCnt.toLocaleString()})</span></button>`;
+        }).join('');
     }
 
     function applyFilters(zoomToFit) {
@@ -2943,7 +2970,8 @@
         const targetBounds = L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
         if (city) {
           map.flyToBounds(targetBounds, { padding: [50, 50], maxZoom: 16, duration: 1.2 });
-          showToast(`📍 Focused on ${city.replace('-', ' ')} (${filteredList.length.toLocaleString()} assets)`);
+          const cityLights = filteredList.filter(r => r.kind !== 'panel' && r.kind !== 'pole').length;
+          showToast(`📍 Focused on ${city.replace('-', ' ')} (${cityLights.toLocaleString()} lights)`);
         } else {
           map.fitBounds(targetBounds, { padding: [40, 40], maxZoom: 16, animate: true });
         }
