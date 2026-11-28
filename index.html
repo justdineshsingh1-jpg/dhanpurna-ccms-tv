@@ -173,6 +173,9 @@
     .voice-answer-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
     .voice-answer-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .voice-answer-icon{font-size:14px}
+    .voice-header-tools{display:flex;align-items:center;gap:6px}
+    .voice-lang-pill{padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;border:1px solid #cbd5e1;background:#f1f5f9;color:#334155;cursor:pointer;transition:all .15s ease}
+    .voice-lang-pill:hover{background:#e2e8f0;color:#0f172a;border-color:#94a3b8}
     .voice-answer-close{border:none;background:transparent;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px}
     .voice-answer-close:hover{background:#f1f5f9;color:#0f172a}
     .voice-answer-body{font-size:13.5px;font-weight:600;color:#0f172a;line-height:1.45;margin-bottom:8px}
@@ -501,7 +504,10 @@
                 <span class="voice-answer-icon" id="voiceAnswerIcon">🎤</span>
                 <span id="voiceQueryHeard">Listening...</span>
               </div>
-              <button class="voice-answer-close" id="voiceAnswerClose" type="button" title="Close voice response">×</button>
+              <div class="voice-header-tools">
+                <button class="voice-lang-pill" id="voiceLangToggle" type="button" title="Switch voice language / accent: English (India), Hindi, English (US)">🇮🇳 EN</button>
+                <button class="voice-answer-close" id="voiceAnswerClose" type="button" title="Close voice response">×</button>
+              </div>
             </div>
             <div class="voice-answer-body" id="voiceAnswerText"></div>
             <div class="voice-answer-actions" id="voiceAnswerActions"></div>
@@ -553,7 +559,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v26';
+    const DB_KEY = 'bundled_or_custom_v27';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1629,6 +1635,94 @@
     // =========================================================================
     let voiceCardTimeout = null;
     let isListeningVoice = false;
+    let voiceRecognitionInstance = null;
+    let currentVoiceLang = localStorage.getItem('ccms_voice_lang') || 'en-IN';
+
+    const VOICE_LANG_LABELS = {
+      'en-IN': '🇮🇳 EN',
+      'hi-IN': '🇮🇳 HI',
+      'en-US': '🌐 US'
+    };
+    const VOICE_LANG_ORDER = ['en-IN', 'hi-IN', 'en-US'];
+
+    function playMicTone(type = 'start') {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        if (type === 'start') {
+          osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+          osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.08); // G5
+          gain.gain.setValueAtTime(0.06, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.12);
+        } else {
+          osc.frequency.setValueAtTime(783.99, ctx.currentTime); // G5
+          osc.frequency.exponentialRampToValueAtTime(523.25, ctx.currentTime + 0.08); // C5
+          gain.gain.setValueAtTime(0.06, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.12);
+        }
+      } catch (_) {}
+    }
+
+    const PHONETIC_REPLACEMENTS = [
+      // Common acoustic / phonetic misrecognitions for 'panel'
+      [/\b(?:penal|pannel|pennel|canal|candle|channel|flannel|fannel|banner|panel no|panel number|pnl)\b/gi, 'panel'],
+      // Guwahati localities, roads and landmarks
+      [/\b(?:sadgaon|satgao|satgaun|sat cow|sat gram|sat gaon|shadgaon)\b/gi, 'satgaon'],
+      [/\b(?:shankar dev|shankardev|shankar|sankardeva|sonkordev|shankar dey|mahanta)\b/gi, 'sankardev'],
+      [/\b(?:bhashkar nagar|vaskar nagar|basker nagar|baskar nagar)\b/gi, 'bhaskar nagar'],
+      [/\b(?:deshpur|this pur|dis poor|dishpur)\b/gi, 'dispur'],
+      [/\b(?:bell tola|baltola|beltala)\b/gi, 'beltola'],
+      [/\b(?:punjab bari|punjabari|panja bari|panjabadi)\b/gi, 'panjabari'],
+      [/\b(?:beta para|bheta para|bhetapada)\b/gi, 'bhetapara'],
+      [/\b(?:mali gaon|maligaun)\b/gi, 'maligaon'],
+      [/\b(?:kahili para)\b/gi, 'kahilipara'],
+      [/\b(?:hati gaon|hati gaun)\b/gi, 'hatigaon'],
+      [/\b(?:lal ganesh)\b/gi, 'lalganesh'],
+      [/\b(?:g s road|g\.s\. road|gsroad)\b/gi, 'gs road'],
+      [/\b(?:a t road|a\.t\. road|atroad)\b/gi, 'at road'],
+      [/\b(?:r g baruah|r\.g\. baruah|rgbaruah)\b/gi, 'rg baruah'],
+      [/\b(?:v i p road|v\.i\.p\. road|viproad)\b/gi, 'vip road'],
+      [/\b(?:ju road|zu road|zoo-road)\b/gi, 'zoo road'],
+      [/\b(?:six mile|6 mile|sixmile)\b/gi, 'six mile'],
+      [/\b(?:khanapara|khana para)\b/gi, 'khanapara'],
+      [/\b(?:fancy bazar|fency bazar|phansi bazar)\b/gi, 'fancy bazar'],
+      [/\b(?:paltan bazar|palton bazar)\b/gi, 'paltan bazar'],
+      [/\b(?:chandmari|chand mari)\b/gi, 'chandmari'],
+      [/\b(?:jalukbari|jaluk bari)\b/gi, 'jalukbari'],
+      [/\b(?:borjhar|bor jhar)\b/gi, 'borjhar'],
+      // Phase pronunciation
+      [/\b(?:faze|faiz|face|fase)\b/gi, 'phase'],
+      // Spoken Hindi / Hinglish phrasing
+      [/\b(?:kitne?|kitna|kitni)\s+(?:light|lights|battiyan|batti)\s*(?:hai|hain)?\b/gi, 'how many lights'],
+      [/\b(?:me|mein|par|pe)\s+(?:kitne?|kitna)\s+light\b/gi, 'how many lights'],
+      [/\b(?:kaha|kahan)\s+hai\b/gi, 'where is'],
+      [/\b(?:dikhao|batao|bataiye|search karo|khojo)\b/gi, 'show'],
+      [/\bkul\s+(?:light|lights)\b/gi, 'total lights'],
+      [/\bsab\s+(?:light|lights)\b/gi, 'all lights']
+    ];
+
+    function normalizePhonetics(text) {
+      let s = (text || '').toLowerCase();
+      for (const [pattern, replacement] of PHONETIC_REPLACEMENTS) {
+        s = s.replace(pattern, replacement);
+      }
+      return s.trim();
+    }
+
+    const DIGIT_WORDS = {
+      'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9'
+    };
 
     const WORD_TO_NUM = {
       'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
@@ -1643,6 +1737,23 @@
       const directMatch = text.match(/\b\d+\b/);
       if (directMatch) return parseInt(directMatch[0], 10);
       const words = text.toLowerCase().split(/[\s-]+/);
+      
+      // Support spoken single digit sequences (e.g. "four five" -> 45, "three five nine" -> 359)
+      const digitIndices = [];
+      words.forEach((w, i) => {
+        if (DIGIT_WORDS[w] !== undefined) digitIndices.push(i);
+      });
+      if (digitIndices.length >= 2) {
+        let isConsecutive = true;
+        for (let k = 1; k < digitIndices.length; k++) {
+          if (digitIndices[k] !== digitIndices[k - 1] + 1) { isConsecutive = false; break; }
+        }
+        if (isConsecutive) {
+          const numStr = digitIndices.map(i => DIGIT_WORDS[words[i]]).join('');
+          return parseInt(numStr, 10);
+        }
+      }
+
       let current = 0;
       let found = false;
       for (const w of words) {
@@ -1657,17 +1768,20 @@
     }
 
     function processVoiceQuery(raw) {
-      const query = raw.trim();
-      const lower = query.toLowerCase()
+      const query = (raw || '').trim();
+      const normalized = normalizePhonetics(query);
+      const lower = normalized.toLowerCase()
         .replace(/[?,.!]+$/, '')
         .trim();
 
       // 1. Total lights or panels
-      if (/^(?:what is the\s+)?(?:total|all)\s*(?:lights?|assets?|panels?)\b/i.test(lower) || /^how many\s+(?:total\s+)?(?:lights?|panels?)\s*(?:are\s+there\s*)?(?:in\s+total|overall|altogether|in\s+guwahati)?$/i.test(lower) || /^(?:total|all)\s*$/i.test(lower)) {
+      if (/^(?:what is the\s+)?(?:total|all)\s*(?:lights?|assets?|panels?)\b/i.test(lower) || /^how many\s+(?:total\s+)?(?:lights?|panels?)\s*(?:are\s+there\s*)?(?:in\s+total|overall|altogether|in\s+guwahati)?$/i.test(lower) || /^(?:total|all)\s*(?:lights?)?$/i.test(lower)) {
         return {
           type: 'total',
-          speech: `There are 39,154 total lights across 359 CCMS panels in Guwahati.`,
-          answer: `💡 <strong>39,154</strong> total lights across <strong>359</strong> CCMS panels in Guwahati.`,
+          rawQuery: query,
+          score: 85,
+          speech: 'There are 39,154 total lights across 359 CCMS panels in Guwahati.',
+          answer: '💡 <strong>39,154</strong> total lights across <strong>359</strong> CCMS panels in Guwahati.',
           action: 'show_all'
         };
       }
@@ -1682,15 +1796,17 @@
           });
           if (match) {
             const lights = lightCountsByPanel.get(match.key) || match.count || 0;
-            const loc = match.lane ? ` at ${match.lane}` : '';
+            const loc = match.lane ? ' at ' + match.lane : '';
             return {
               type: 'panel',
+              rawQuery: query,
+              score: 100,
               panelKey: match.key,
               panelLabel: match.label,
               panelNum: num,
               lights: lights,
-              speech: `Panel ${num} has ${lights} connected lights${loc}.`,
-              answer: `⚡ <strong>Panel ${num}</strong> (${match.label}) has <strong>${lights}</strong> connected lights${loc}.`,
+              speech: 'Panel ' + num + ' has ' + lights + ' connected lights' + loc + '.',
+              answer: '⚡ <strong>Panel ' + num + '</strong> (' + match.label + ') has <strong>' + lights + '</strong> connected lights' + loc + '.',
               action: 'activate_panel'
             };
           }
@@ -1710,10 +1826,12 @@
         if (isPhaseMatch) {
           return {
             type: 'phase',
+            rawQuery: query,
+            score: 95,
             phase: phaseName,
             count: count,
-            speech: `${phaseName} has ${count.toLocaleString()} lights in Guwahati.`,
-            answer: `🏷️ <strong>${phaseName}</strong> has <strong>${count.toLocaleString()}</strong> lights in Guwahati.`,
+            speech: phaseName + ' has ' + count.toLocaleString() + ' lights in Guwahati.',
+            answer: '🏷️ <strong>' + phaseName + '</strong> has <strong>' + count.toLocaleString() + '</strong> lights in Guwahati.',
             action: 'filter_phase'
           };
         }
@@ -1726,30 +1844,39 @@
         const wardLights = allRecords.filter(r => r.kind !== 'panel' && r.ward === wardNum).length;
         return {
           type: 'ward',
+          rawQuery: query,
+          score: 90,
           ward: wardNum,
           count: wardLights,
-          speech: `Ward ${wardNum} has ${wardLights.toLocaleString()} lights.`,
-          answer: `📍 <strong>Ward ${wardNum}</strong> has <strong>${wardLights.toLocaleString()}</strong> lights.`,
+          speech: 'Ward ' + wardNum + ' has ' + wardLights.toLocaleString() + ' lights.',
+          answer: '📍 <strong>Ward ' + wardNum + '</strong> has <strong>' + wardLights.toLocaleString() + '</strong> lights.',
           action: 'filter_ward'
         };
       }
 
-      // 5. Clean common question prefixes to get target location / road / area
+      // 5. Clean common question prefixes & suffixes to get target location / road / area
       let cleaned = lower
         .replace(/^.*?(?:how many lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|how lights? (?:are )?(?:there )?(?:connected )?(?:at|in|on|near)?|lights? (?:are )?(?:at|in|on|near)|is there any light (?:at|in|on|near)?|show me(?: lights? (?:at|in|on|near)?)?|find(?: lights? (?:at|in|on|near)?)?|search(?: for)?|where is|tell me about)\s+/i, '')
+        .replace(/\s+(?:how many lights?|how lights?|kitna light|kitne light|lights?|batti|battiyan).*$/i, '')
+        .replace(/\s+(?:me|mein|par|pe|kaha|kahan).*$/i, '')
         .replace(/[?.!]+$/, '')
         .trim();
 
       if (cleaned.length >= 3) {
-        // Check if cleaned matches an exact road label
-        const exactRoad = searchCatalog.roads.find(r => r.label.toLowerCase() === cleaned);
+        // Check if cleaned matches an exact road label or substring of road label
+        const exactRoad = searchCatalog.roads.find(r => {
+          const rLower = r.label.toLowerCase();
+          return rLower === cleaned || rLower.includes(cleaned);
+        });
         if (exactRoad) {
           return {
             type: 'road',
+            rawQuery: query,
+            score: 95,
             roadLabel: exactRoad.label,
             count: exactRoad.count,
-            speech: `Found ${exactRoad.count} lights on ${exactRoad.label}.`,
-            answer: `🛣️ <strong>${exactRoad.label}</strong>: <strong>${exactRoad.count}</strong> lights connected.`,
+            speech: 'Found ' + exactRoad.count + ' lights on ' + exactRoad.label + '.',
+            answer: '🛣️ <strong>' + exactRoad.label + '</strong>: <strong>' + exactRoad.count + '</strong> lights connected.',
             action: 'filter_road',
             searchTerm: exactRoad.label
           };
@@ -1757,7 +1884,7 @@
 
         // Check token matching across roads (e.g. "Sri Mahanta Sankardev path, Bhaskar Nagar")
         const tokens = cleaned.split(/[, ]+/).filter(t => t.length > 2 && !['near', 'path', 'road', 'main', 'lane'].includes(t));
-        if (tokens.length >= 2) {
+        if (tokens.length >= 1) {
           const tokenRoad = searchCatalog.roads.find(r => {
             const rLower = r.label.toLowerCase();
             return tokens.every(t => rLower.includes(t));
@@ -1765,10 +1892,12 @@
           if (tokenRoad) {
             return {
               type: 'road',
+              rawQuery: query,
+              score: 85,
               roadLabel: tokenRoad.label,
               count: tokenRoad.count,
-              speech: `Found ${tokenRoad.count} lights on ${tokenRoad.label}.`,
-              answer: `🛣️ <strong>${tokenRoad.label}</strong>: <strong>${tokenRoad.count}</strong> lights connected.`,
+              speech: 'Found ' + tokenRoad.count + ' lights on ' + tokenRoad.label + '.',
+              answer: '🛣️ <strong>' + tokenRoad.label + '</strong>: <strong>' + tokenRoad.count + '</strong> lights connected.',
               action: 'filter_road',
               searchTerm: tokenRoad.label
             };
@@ -1786,14 +1915,16 @@
           if (lightMatches.length > 0) {
             const panelSet = new Set(lightMatches.map(r => r.panel).filter(Boolean));
             const prettyName = cleaned.replace(/\b\w/g, l => l.toUpperCase());
-            const panelSuffix = panelSet.size > 0 ? ` across ${panelSet.size} CCMS panel${panelSet.size > 1 ? 's' : ''}` : '';
+            const panelSuffix = panelSet.size > 0 ? ' across ' + panelSet.size + ' CCMS panel' + (panelSet.size > 1 ? 's' : '') : '';
             return {
               type: 'area',
+              rawQuery: query,
+              score: 80,
               searchTerm: cleaned,
               count: lightMatches.length,
               panelsCount: panelSet.size,
-              speech: `Found ${lightMatches.length} lights near ${prettyName}${panelSuffix}.`,
-              answer: `📍 Found <strong>${lightMatches.length.toLocaleString()}</strong> lights near <strong>${prettyName}</strong>${panelSet.size > 0 ? ` across <strong>${panelSet.size}</strong> panels` : ''}.`,
+              speech: 'Found ' + lightMatches.length + ' lights near ' + prettyName + panelSuffix + '.',
+              answer: '📍 Found <strong>' + lightMatches.length.toLocaleString() + '</strong> lights near <strong>' + prettyName + '</strong>' + (panelSet.size > 0 ? ' across <strong>' + panelSet.size + '</strong> panels' : '') + '.',
               action: 'filter_search'
             };
           }
@@ -1806,21 +1937,39 @@
       if (lightCount > 0) {
         return {
           type: 'search',
+          rawQuery: query,
+          score: 50 + Math.min(lightCount, 25),
           searchTerm: query,
           count: lightCount,
-          speech: `Found ${lightCount} lights matching ${query}.`,
-          answer: `🔍 Found <strong>${lightCount.toLocaleString()}</strong> lights matching "<em>${query}</em>".`,
+          speech: 'Found ' + lightCount + ' lights matching ' + query + '.',
+          answer: '🔍 Found <strong>' + lightCount.toLocaleString() + '</strong> lights matching "<em>' + query + '</em>".',
           action: 'filter_search'
         };
       }
 
       return {
         type: 'not_found',
+        rawQuery: query,
+        score: 0,
         searchTerm: query,
-        speech: `Sorry, I couldn't find any lights matching ${query} in Guwahati.`,
+        speech: "Sorry, I could not find any lights matching " + query + " in Guwahati.",
         answer: `❓ No lights or panels found matching "<em>${query}</em>" in Guwahati.`,
         action: 'none'
       };
+    }
+
+    function evaluateBestVoiceCandidate(candidates) {
+      if (!candidates || candidates.length === 0) return null;
+      let best = null;
+      for (const cand of candidates) {
+        const text = (cand || '').trim();
+        if (!text) continue;
+        const res = processVoiceQuery(text);
+        if (!best || res.score > best.score) {
+          best = res;
+        }
+      }
+      return best || processVoiceQuery(candidates[0]);
     }
 
     function speakText(text) {
@@ -1864,6 +2013,7 @@
     function initVoiceAssistant() {
       const voiceBtn = byId('voiceSearchBtn');
       const closeBtn = byId('voiceAnswerClose');
+      const langBtn = byId('voiceLangToggle');
       const card = byId('voiceAnswerCard');
       if (!voiceBtn) return;
 
@@ -1877,40 +2027,74 @@
         return;
       }
 
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 2;
-      recognition.lang = 'en-IN';
+      function updateLangBtnText() {
+        if (langBtn) {
+          langBtn.textContent = VOICE_LANG_LABELS[currentVoiceLang] || '🇮🇳 EN';
+          langBtn.title = 'Current voice language: ' + currentVoiceLang + '. Click to switch (Indian English, Hindi, US English)';
+        }
+      }
+      updateLangBtnText();
 
-      recognition.onstart = () => {
-        isListeningVoice = true;
-        voiceBtn.classList.remove('processing');
-        voiceBtn.classList.add('listening');
-        voiceBtn.title = 'Listening... Speak now';
-        byId('searchInput').placeholder = '🎙️ Listening... speak now (e.g. "lights in panel 45")';
-        showVoiceAnswer('🎙️ Listening...', 'Please speak your question, e.g.: <em>"How many lights in panel 45?"</em> or <em>"How many lights near Satgaon Main Road?"</em>', '', 0);
-      };
+      if (langBtn) {
+        langBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const currIdx = VOICE_LANG_ORDER.indexOf(currentVoiceLang);
+          currentVoiceLang = VOICE_LANG_ORDER[(currIdx + 1) % VOICE_LANG_ORDER.length];
+          localStorage.setItem('ccms_voice_lang', currentVoiceLang);
+          updateLangBtnText();
+          showToast('🎤 Voice language changed to ' + VOICE_LANG_LABELS[currentVoiceLang] + ' (' + currentVoiceLang + ')');
+          if (isListeningVoice && voiceRecognitionInstance) {
+            try {
+              voiceRecognitionInstance.stop();
+            } catch (_) {}
+          }
+        });
+      }
 
-      recognition.onresult = event => {
+      let recognition = new SpeechRecognition();
+      voiceRecognitionInstance = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 5;
+      recognition.lang = currentVoiceLang;
+
+      let silenceDebounceTimer = null;
+      let sessionCandidates = new Set();
+
+      function stopVoiceAndProcess() {
+        clearTimeout(silenceDebounceTimer);
+        isListeningVoice = false;
         voiceBtn.classList.remove('listening');
         voiceBtn.classList.add('processing');
-        const rawTranscript = event.results[0][0].transcript;
-        const result = processVoiceQuery(rawTranscript);
+        playMicTone('end');
+
+        try {
+          recognition.stop();
+        } catch (_) {}
+
+        const candidates = Array.from(sessionCandidates);
+        const result = evaluateBestVoiceCandidate(candidates);
+
+        voiceBtn.classList.remove('processing');
+        voiceBtn.title = 'Search by Voice';
+        byId('searchInput').placeholder = 'Search city, panel, road or location…';
+
+        if (!result) return;
 
         let actionBtns = '';
         if (result.type === 'panel') {
-          actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnTrace">⚡ Trace Feeder</button>`;
+          actionBtns += '<button class="voice-action-btn primary" type="button" id="voiceBtnTrace">⚡ Trace Feeder</button>';
         } else if (result.type === 'road' || result.type === 'area' || result.type === 'search') {
-          actionBtns += `<button class="voice-action-btn primary" type="button" id="voiceBtnZoom">📍 Focus Map</button>`;
+          actionBtns += '<button class="voice-action-btn primary" type="button" id="voiceBtnZoom">📍 Focus Map</button>';
         }
-        actionBtns += `<button class="voice-action-btn" type="button" id="voiceBtnSpeak">🔊 Listen</button>`;
+        actionBtns += '<button class="voice-action-btn" type="button" id="voiceBtnSpeak">🔊 Listen</button>';
 
-        showVoiceAnswer(`🎤 Heard: "${esc(rawTranscript)}"`, result.answer, actionBtns, 14000);
+        const displayQuery = result.rawQuery || candidates[0] || 'Voice Query';
+        showVoiceAnswer('🎤 Heard: "' + esc(displayQuery) + '"', result.answer, actionBtns, 14000);
 
         // Execute map action
         if (result.action === 'activate_panel') {
-          byId('searchInput').value = `Panel ${result.panelNum}`;
+          byId('searchInput').value = 'Panel ' + result.panelNum;
           byId('clearSearch').style.display = 'block';
           activatePanelCircuit(result.panelKey, true);
         } else if (result.action === 'filter_road' || result.action === 'filter_search') {
@@ -1931,10 +2115,8 @@
           applyFilters(true);
         }
 
-        // Speak answer aloud
         speakText(result.speech);
 
-        // Bind card actions
         const traceBtn = byId('voiceBtnTrace');
         if (traceBtn && result.panelKey) {
           traceBtn.addEventListener('click', () => activatePanelCircuit(result.panelKey, true));
@@ -1947,38 +2129,103 @@
         if (speakBtn) {
           speakBtn.addEventListener('click', () => speakText(result.speech));
         }
+      }
+
+      recognition.onstart = () => {
+        isListeningVoice = true;
+        sessionCandidates.clear();
+        voiceBtn.classList.remove('processing');
+        voiceBtn.classList.add('listening');
+        voiceBtn.title = 'Listening continuously... Pause when finished';
+        byId('searchInput').placeholder = '🎙️ Listening... speak naturally (e.g. "lights in panel 45")';
+        showVoiceAnswer('🎙️ Listening...', 'Speak naturally into your mic, e.g.:<br>• <em>"How many lights in panel 45?"</em><br>• <em>"How many lights near Satgaon Main Road?"</em><br>• <em>"Sri Mahanta Sankardev path"</em><br>• <em>"Phase 1"</em> or <em>"Total lights"</em>', '', 0);
+      };
+
+      recognition.onresult = event => {
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const res = event.results[i];
+          for (let j = 0; j < res.length; j++) {
+            const transcript = res[j].transcript.trim();
+            if (transcript) sessionCandidates.add(transcript);
+          }
+          if (res.isFinal) {
+            finalText += res[0].transcript + ' ';
+          } else {
+            interimText += res[0].transcript;
+          }
+        }
+
+        const liveTranscript = (finalText + interimText).trim();
+        if (liveTranscript) {
+          byId('searchInput').value = liveTranscript;
+          byId('clearSearch').style.display = 'block';
+          showVoiceAnswer('🎙️ Hearing you...', '<em>"' + esc(liveTranscript) + '"</em><span style="display:block;font-size:11px;color:#64748b;margin-top:4px;">Listening… pause when done speaking</span>', '', 0);
+        }
+
+        // Reset silence debounce timer: 1200ms after user pauses speaking, auto-commit
+        clearTimeout(silenceDebounceTimer);
+        silenceDebounceTimer = setTimeout(() => {
+          if (isListeningVoice) {
+            stopVoiceAndProcess();
+          }
+        }, 1200);
       };
 
       recognition.onerror = event => {
+        clearTimeout(silenceDebounceTimer);
         isListeningVoice = false;
         voiceBtn.classList.remove('listening', 'processing');
         voiceBtn.title = 'Search by Voice';
         byId('searchInput').placeholder = 'Search city, panel, road or location…';
         if (event.error === 'not-allowed') {
-          showVoiceAnswer('⚠️ Microphone Permission Blocked', 'Please allow microphone access in your browser to use voice search.');
+          showVoiceAnswer('⚠️ Microphone Blocked', 'Please allow microphone access in your browser address bar.');
         } else if (event.error !== 'no-speech') {
-          showVoiceAnswer('⚠️ Voice Recognition Error', `Could not hear clearly (${event.error}). Click the microphone to try again.`);
-        } else {
-          showVoiceAnswer('⚠️ No Speech Detected', 'Click the microphone button and speak your question.');
+          showVoiceAnswer('⚠️ Voice Error', 'Could not hear clearly (' + event.error + '). Click the microphone to try again.');
         }
       };
 
       recognition.onend = () => {
-        isListeningVoice = false;
-        voiceBtn.classList.remove('listening', 'processing');
-        voiceBtn.title = 'Search by Voice';
-        byId('searchInput').placeholder = 'Search city, panel, road or location…';
+        clearTimeout(silenceDebounceTimer);
+        if (isListeningVoice) {
+          if (sessionCandidates.size > 0) {
+            stopVoiceAndProcess();
+          } else {
+            isListeningVoice = false;
+            voiceBtn.classList.remove('listening', 'processing');
+            voiceBtn.title = 'Search by Voice';
+            byId('searchInput').placeholder = 'Search city, panel, road or location…';
+          }
+        }
       };
 
       voiceBtn.addEventListener('click', () => {
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         if (isListeningVoice) {
-          recognition.stop();
+          if (sessionCandidates.size > 0) {
+            stopVoiceAndProcess();
+          } else {
+            try { recognition.stop(); } catch (_) {}
+            isListeningVoice = false;
+            voiceBtn.classList.remove('listening', 'processing');
+            voiceBtn.title = 'Search by Voice';
+            byId('searchInput').placeholder = 'Search city, panel, road or location…';
+          }
         } else {
           try {
+            recognition.lang = currentVoiceLang;
+            playMicTone('start');
             recognition.start();
           } catch (e) {
             console.warn('Recognition start error:', e);
+            try {
+              recognition.stop();
+              setTimeout(() => {
+                try { recognition.start(); } catch (_) {}
+              }, 150);
+            } catch (_) {}
           }
         }
       });
@@ -1986,12 +2233,18 @@
       if (closeBtn && card) {
         closeBtn.addEventListener('click', () => {
           if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+          clearTimeout(silenceDebounceTimer);
+          if (isListeningVoice) {
+            try { recognition.stop(); } catch (_) {}
+            isListeningVoice = false;
+            voiceBtn.classList.remove('listening', 'processing');
+          }
           card.classList.add('hidden');
         });
       }
     }
 
-    function normalizePhase(val) {
+        function normalizePhase(val) {
       if (!val) return '';
       const s = String(val).trim();
       const lower = s.toLowerCase();
