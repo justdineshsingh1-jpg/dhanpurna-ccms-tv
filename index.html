@@ -553,7 +553,7 @@
     const BUNDLED_CSV_PATH = './data.csv';
     const DB_NAME = 'AssamStreetLightDB';
     const DB_STORE = 'datasets';
-    const DB_KEY = 'bundled_or_custom_v25';
+    const DB_KEY = 'bundled_or_custom_v26';
     let cachedSurveyedPanels = [];
     let panelMetaMap = new Map();
 
@@ -1697,8 +1697,9 @@
         }
       }
 
-      // 3. Phase query
-      for (const [phaseName, count] of Object.entries(CANONICAL_PHASE_COUNTS)) {
+      // 3. Phase query (longest names first so 'Repeat Order Phase 2' matches before 'Phase 2')
+      const sortedPhases = Object.entries(CANONICAL_PHASE_COUNTS).sort((a, b) => b[0].length - a[0].length);
+      for (const [phaseName, count] of sortedPhases) {
         const pLower = phaseName.toLowerCase();
         let isPhaseMatch = false;
         if (pLower === 'main road') {
